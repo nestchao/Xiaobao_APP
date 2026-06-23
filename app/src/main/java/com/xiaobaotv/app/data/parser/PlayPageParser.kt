@@ -43,9 +43,11 @@ object PlayPageParser {
     fun extractPlaybackUrl(html: String): String? {
         try {
             // Pattern to match "url":"http...m3u8" or similar in script tags
+            // CMS has multiple "url" keys; the LAST one in the HTML is the video URL
+            // (first is the CMS config: url:www.xiaobaotv.tv)
             val regex = "\"url\":\"([^\"]+)\"".toRegex()
-            val match = regex.find(html)
-            val rawUrl = match?.groupValues?.get(1)
+            val matches = regex.findAll(html).toList()
+            val rawUrl = if (matches.isNotEmpty()) matches.last().groupValues[1] else null
 
             if (rawUrl != null) {
                 // Decode unicode escapes if any (e.g. \/ -> /)

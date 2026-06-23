@@ -38,7 +38,7 @@ class ContentRepositoryImpl @Inject constructor(
     override suspend fun getVodDetail(id: Int): Result<VodContent> {
         return try {
             val response = api.getVodList(mid = 1, ids = id.toString())
-            val item = response.list.firstOrNull()
+            val item = response.list.find { it.vodId == id }
             if (item != null) {
                 Result.success(item.toDomain())
             } else {
