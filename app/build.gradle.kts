@@ -25,8 +25,6 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
         }
         release {
             isMinifyEnabled = true
@@ -114,6 +112,9 @@ dependencies {
 
     // Jsoup
     implementation(libs.jsoup)
+
+    // Timber
+    implementation(libs.timber)
 
     // Coroutines
     implementation(libs.coroutines.android)
