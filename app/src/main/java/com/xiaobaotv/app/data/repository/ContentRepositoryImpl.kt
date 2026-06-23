@@ -22,11 +22,11 @@ class ContentRepositoryImpl @Inject constructor(
     ): Result<List<VodContent>> {
         return try {
             val response = api.getVodList(
-                mid = typeId,
+                mid = 1,
                 page = page,
                 limit = limit,
                 wd = query,
-                tid = categoryId,
+                tid = typeId,
                 ids = ids
             )
             Result.success(response.list.map { it.toDomain() })
@@ -37,7 +37,7 @@ class ContentRepositoryImpl @Inject constructor(
 
     override suspend fun getVodDetail(id: Int): Result<VodContent> {
         return try {
-            val response = api.getVodList(ids = id.toString())
+            val response = api.getVodList(mid = 1, ids = id.toString())
             val item = response.list.firstOrNull()
             if (item != null) {
                 Result.success(item.toDomain())

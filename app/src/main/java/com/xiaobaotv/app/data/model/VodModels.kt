@@ -9,7 +9,7 @@ data class VodListResponse(
     @Json(name = "msg") val msg: String,
     @Json(name = "page") val page: Int,
     @Json(name = "pagecount") val pageCount: Int,
-    @Json(name = "limit") val limit: String,
+    @Json(name = "limit") val limit: Int,
     @Json(name = "total") val total: Int,
     @Json(name = "list") val list: List<VodItem>
 )
