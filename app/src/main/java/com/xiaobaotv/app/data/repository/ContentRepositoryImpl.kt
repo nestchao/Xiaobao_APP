@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -73,9 +74,11 @@ class ContentRepositoryImpl @Inject constructor(
         while (attempt < maxAttempts) {
             val result = fetchDetailPage(id)
             if (result != null) return result
+            Timber.w("getVodDetail($id) attempt ${attempt + 1} failed")
             attempt++
-            if (attempt < maxAttempts) delay(1000L * attempt) // 1s, then 2s
+            if (attempt < maxAttempts) delay(1000L * attempt)
         }
+        Timber.e("getVodDetail($id) exhausted after $maxAttempts attempts")
         return null
     }
 
@@ -86,11 +89,15 @@ class ContentRepositoryImpl @Inject constructor(
             val response = client.newCall(request).execute()
 
             // Detect rate limiting / server errors
-            if (!response.isSuccessful) return@withContext null
+            if (!response.isSuccessful) {
+                Timber.e("HTTP ${response.code} for detail/$id.html")
+                return@withContext null
+            }
 
             val html = response.body?.string() ?: return@withContext null
             VodDetailParser.parse(html, id)
         } catch (e: Exception) {
+            Timber.e(e, "Exception fetching detail/$id.html")
             null
         }
     }

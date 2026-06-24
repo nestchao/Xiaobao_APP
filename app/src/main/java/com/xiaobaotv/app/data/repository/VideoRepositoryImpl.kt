@@ -25,10 +25,14 @@ class VideoRepositoryImpl @Inject constructor(
         // Check cache first
         sourcesCache[vodId]?.let { return@withContext Result.success(it) }
         try {
-            val html = fetchWithRetry("$baseUrl/movie/play/$vodId-1-1.html")
-                ?: return@withContext Result.failure(Exception("Failed to fetch play page"))
+            val html = fetchWithRetry("$baseUrl/movie/detail/$vodId.html")
+                ?: return@withContext Result.failure(Exception("Failed to fetch detail page"))
             val sources = PlayPageParser.parseVideoSources(html)
-            if (sources.isNotEmpty()) sourcesCache[vodId] = sources
+            if (sources.isEmpty()) {
+                Timber.e("No episodes found in detail page for vodId=$vodId")
+            } else {
+                sourcesCache[vodId] = sources
+            }
             Result.success(sources)
         } catch (e: Exception) {
             Result.failure(e)
