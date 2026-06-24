@@ -19,7 +19,7 @@ object VodDetailParser {
             val area = extractLabeledText(doc, "地区：")
             val year = extractLabeledText(doc, "年份：")
             val remarks = extractRemarks(doc)
-            val score = extractScore(doc)
+            val score = extractScore(doc, html)
             val actor = extractJoinedLinks(doc, "主演：")
             val director = extractJoinedLinks(doc, "导演：")
             val content = extractFullDescription(doc)
@@ -58,43 +58,29 @@ object VodDetailParser {
     }
 
     private fun extractLabeledText(doc: Document, label: String): String? {
-        val ps = doc.select("p.data")
-        for (p in ps) {
-            if (p.html().contains(label)) {
-                val link = p.selectFirst("a")
-                return link?.text()?.trim()
-            }
-        }
-        return null
+        // Find the span containing the label, then get the next sibling <a>
+        val span = doc.selectFirst("span.text-muted:containsOwn($label)")
+        return span?.nextElementSibling()?.text()?.trim()
     }
 
     private fun extractRemarks(doc: Document): String? {
-        val ps = doc.select("p.data")
-        for (p in ps) {
-            if (p.html().contains("更新：")) {
-                val red = p.selectFirst("span.text-red")
-                if (red != null) return red.text().trim()
-                return p.text().substringAfter("更新：").trim()
-            }
-        }
+        val span = doc.selectFirst("span.text-muted:containsOwn(更新：)")
+        val red = span?.nextElementSibling()
+        if (red != null && red.hasClass("text-red")) return red.text().trim()
         return null
     }
 
-    private fun extractScore(doc: Document): String? {
-        val el = doc.selectFirst("span.branch")
-        return el?.text()?.trim()
+    private fun extractScore(doc: Document, html: String): String? {
+        doc.selectFirst("span.branch")?.let { return it.text().trim() }
+        val regex = Regex("""<span\s+class="branch">([^<]+)</span>""")
+        return regex.find(html)?.groupValues?.get(1)?.trim()
     }
 
     private fun extractJoinedLinks(doc: Document, label: String): String? {
-        val ps = doc.select("p.data")
-        for (p in ps) {
-            if (p.html().contains(label)) {
-                val links = p.select("a")
-                if (links.isEmpty()) return null
-                return links.joinToString(",") { it.text().trim() }
-            }
-        }
-        return null
+        val span = doc.selectFirst("span.text-muted:containsOwn($label)")
+        val links = span?.nextElementSiblings()?.filter { it.tagName() == "a" }
+        if (links.isNullOrEmpty()) return null
+        return links.joinToString(",") { it.text().trim() }
     }
 
     private fun extractFullDescription(doc: Document): String? {
