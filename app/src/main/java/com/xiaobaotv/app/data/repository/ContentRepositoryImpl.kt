@@ -1,5 +1,6 @@
 package com.xiaobaotv.app.data.repository
 
+import com.xiaobaotv.app.data.cache.DetailPageCache
 import com.xiaobaotv.app.data.model.toDomain
 import com.xiaobaotv.app.data.parser.VodDetailParser
 import com.xiaobaotv.app.data.remote.XiaobaoApi
@@ -18,11 +19,12 @@ import javax.inject.Singleton
 @Singleton
 class ContentRepositoryImpl @Inject constructor(
     private val api: XiaobaoApi,
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val detailCache: DetailPageCache
 ) : ContentRepository {
 
     private val baseUrl = "https://www.xiaobaotv.tv"
-    private val detailCache = ConcurrentHashMap<Int, VodContent>()
+    private val vodCache = ConcurrentHashMap<Int, VodContent>()
 
     override suspend fun getVodList(
         typeId: Int?,
@@ -48,13 +50,13 @@ class ContentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getVodDetail(id: Int): Result<VodContent> {
-        // Check cache first
-        detailCache[id]?.let { return Result.success(it) }
+        // Check local cache first
+        vodCache[id]?.let { return Result.success(it) }
 
         return try {
             val item = fetchWithRetry(id)
             if (item != null) {
-                detailCache[id] = item
+                vodCache[id] = item
                 Result.success(item)
             } else {
                 Result.failure(Exception("Not found"))
@@ -95,6 +97,7 @@ class ContentRepositoryImpl @Inject constructor(
             }
 
             val html = response.body?.string() ?: return@withContext null
+            detailCache.put(id, html) // share with VideoRepositoryImpl
             VodDetailParser.parse(html, id)
         } catch (e: Exception) {
             Timber.e(e, "Exception fetching detail/$id.html")

@@ -1,10 +1,10 @@
 package com.xiaobaotv.app.data.repository
 
+import com.xiaobaotv.app.data.cache.DetailPageCache
 import com.xiaobaotv.app.data.parser.PlayPageParser
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.repository.VideoRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -15,17 +15,20 @@ import javax.inject.Singleton
 
 @Singleton
 class VideoRepositoryImpl @Inject constructor(
-    private val client: OkHttpClient
+    private val client: OkHttpClient,
+    private val detailCache: DetailPageCache
 ) : VideoRepository {
 
     private val baseUrl = "https://www.xiaobaotv.tv"
     private val sourcesCache = ConcurrentHashMap<Int, List<VideoSource>>()
 
     override suspend fun getVideoSources(vodId: Int): Result<List<VideoSource>> = withContext(Dispatchers.IO) {
-        // Check cache first
+        // Check local cache first
         sourcesCache[vodId]?.let { return@withContext Result.success(it) }
         try {
-            val html = fetchWithRetry("$baseUrl/movie/detail/$vodId.html")
+            // Use shared detail cache to avoid duplicate requests
+            val html = detailCache.get(vodId)
+                ?: fetchWithRetry("$baseUrl/movie/detail/$vodId.html")
                 ?: return@withContext Result.failure(Exception("Failed to fetch detail page"))
             val sources = PlayPageParser.parseVideoSources(html)
             if (sources.isEmpty()) {
