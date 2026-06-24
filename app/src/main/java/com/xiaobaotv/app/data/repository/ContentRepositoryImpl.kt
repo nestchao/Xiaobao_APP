@@ -76,7 +76,7 @@ class ContentRepositoryImpl @Inject constructor(
 
     private suspend fun fetchDetailFromPlayPage(id: Int): VodContent? = withContext(Dispatchers.IO) {
         try {
-            val url = "$baseUrl/movie/play/$id-1-1.html"
+            val url = "$baseUrl/movie/detail/$id.html"
             val request = Request.Builder().url(url).build()
             val response = client.newCall(request).execute()
             val html = response.body?.string() ?: return@withContext null
