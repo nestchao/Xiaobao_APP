@@ -2,6 +2,7 @@ package com.xiaobaotv.app.data.repository
 
 import com.xiaobaotv.app.data.cache.DetailPageCache
 import com.xiaobaotv.app.data.model.toDomain
+import com.xiaobaotv.app.data.parser.SearchPageParser
 import com.xiaobaotv.app.data.parser.ShowPageParser
 import com.xiaobaotv.app.data.parser.VodDetailParser
 import com.xiaobaotv.app.data.remote.XiaobaoApi
@@ -36,6 +37,14 @@ class ContentRepositoryImpl @Inject constructor(
         ids: String?
     ): Result<List<VodContent>> {
         return try {
+            // For search queries, scrape the HTML search results page
+            // (the API endpoint ignores the wd parameter)
+            if (!query.isNullOrBlank()) {
+                Timber.d("Searching for: $query")
+                val searchResults = fetchSearchResultsWithRetry(query, page)
+                return Result.success(searchResults)
+            }
+
             val response = api.getVodList(
                 mid = 1,
                 page = page,
@@ -46,7 +55,7 @@ class ContentRepositoryImpl @Inject constructor(
             )
 
             // If the API returns empty but we have a typeId, try the HTML show page
-            if (response.list.isEmpty() && typeId != null && query == null) {
+            if (response.list.isEmpty() && typeId != null) {
                 Timber.d("API returned empty for tid=$typeId, falling back to show page HTML")
                 val showPage = fetchShowPage(typeId, page)
                 if (showPage.isNotEmpty()) {
@@ -114,6 +123,52 @@ class ContentRepositoryImpl @Inject constructor(
             Timber.e(e, "Exception fetching detail/$id.html")
             null
         }
+    }
+
+    private suspend fun fetchSearchResults(query: String, page: Int): List<VodContent> = withContext(Dispatchers.IO) {
+        try {
+            val url = SearchPageParser.buildSearchUrl(query, page)
+            val request = Request.Builder().url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                .build()
+            val response = client.newCall(request).execute()
+
+            if (!response.isSuccessful) {
+                Timber.e("HTTP ${response.code} for search page, query=$query, url=$url")
+                return@withContext emptyList()
+            }
+
+            val html = response.body?.string() ?: return@withContext emptyList()
+            val results = SearchPageParser.parse(html, query)
+
+            // Log HTML snippet when parser returns nothing, to distinguish "no results" from parser failure
+            if (results.isEmpty()) {
+                Timber.w("Search returned empty for query=$query. HTML snippet: ${html.take(500)}")
+            }
+
+            results
+        } catch (e: Exception) {
+            Timber.e(e, "Exception fetching search page, query=$query")
+            emptyList()
+        }
+    }
+
+    /**
+     * Fetch search results with retry and exponential backoff.
+     * Retries once if the server returns empty (rate limiting or transient error).
+     */
+    private suspend fun fetchSearchResultsWithRetry(query: String, page: Int): List<VodContent> {
+        var attempt = 0
+        val maxAttempts = 2
+        while (attempt < maxAttempts) {
+            val result = fetchSearchResults(query, page)
+            if (result.isNotEmpty()) return result
+            Timber.w("Search for '$query' attempt ${attempt + 1} returned empty")
+            attempt++
+            if (attempt < maxAttempts) delay(1000L * attempt)
+        }
+        Timber.w("Search for '$query' exhausted after $maxAttempts attempts")
+        return emptyList()
     }
 
     private suspend fun fetchShowPage(typeId: Int, page: Int): List<VodContent> = withContext(Dispatchers.IO) {
