@@ -6,8 +6,6 @@ import com.xiaobaotv.app.data.remote.XiaobaoApi
 import com.xiaobaotv.app.domain.model.VodContent
 import com.xiaobaotv.app.domain.repository.ContentRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -47,25 +45,9 @@ class ContentRepositoryImpl @Inject constructor(
 
     override suspend fun getVodDetail(id: Int): Result<VodContent> {
         return try {
-            // Try play page first (fast, always works for any content)
-            val fromPlayPage = fetchDetailFromPlayPage(id)
-            if (fromPlayPage != null) return Result.success(fromPlayPage)
-
-            // Fallback: search listing pages 1-10
-            val item = coroutineScope {
-                val deferreds = (1..10).map { page ->
-                    async { api.getVodList(mid = 1, page = page, limit = 200).list.find { it.vodId == id } }
-                }
-                var result: com.xiaobaotv.app.data.model.VodItem? = null
-                for (d in deferreds) {
-                    result = d.await()
-                    if (result != null) break
-                }
-                result
-            }
-
+            val item = fetchDetailFromPlayPage(id)
             if (item != null) {
-                Result.success(item.toDomain())
+                Result.success(item)
             } else {
                 Result.failure(Exception("Not found"))
             }
