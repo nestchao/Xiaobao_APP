@@ -1,5 +1,6 @@
 package com.xiaobaotv.app.data.cache
 
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -10,17 +11,13 @@ import javax.inject.Singleton
  */
 @Singleton
 class DetailPageCache @Inject constructor() {
-    private val cache = mutableMapOf<Int, String>()
+    private val cache = ConcurrentHashMap<Int, String>()
 
-    @Synchronized
     fun get(vodId: Int): String? = cache[vodId]
 
-    @Synchronized
     fun put(vodId: Int, html: String) { cache[vodId] = html }
 
-    @Synchronized
     fun remove(vodId: Int) { cache.remove(vodId) }
 
-    @Synchronized
     fun clear() { cache.clear() }
 }
