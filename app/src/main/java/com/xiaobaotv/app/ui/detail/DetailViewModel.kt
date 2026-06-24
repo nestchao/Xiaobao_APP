@@ -15,7 +15,8 @@ data class DetailUiState(
     val isLoading: Boolean = false,
     val vod: VodContent? = null,
     val sources: List<VideoSource> = emptyList(),
-    val error: String? = null
+    val error: String? = null,
+    val sourcesError: String? = null
 )
 
 @HiltViewModel
@@ -29,27 +30,22 @@ class DetailViewModel @Inject constructor(
 
     fun loadDetail(vodId: Int) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, sourcesError = null) }
 
-            // Fetch detail and sources in parallel
-            val detailJob = launch {
-                getVodDetailUseCase(vodId).onSuccess { vod ->
-                    _uiState.update { it.copy(vod = vod) }
-                }.onFailure { e ->
-                    _uiState.update { it.copy(error = e.message) }
-                }
+            // Step 1: Load detail (writes HTML to shared cache)
+            getVodDetailUseCase(vodId).onSuccess { vod ->
+                _uiState.update { it.copy(vod = vod) }
+            }.onFailure { e ->
+                _uiState.update { it.copy(error = e.message) }
             }
 
-            val sourcesJob = launch {
-                getVideoSourcesUseCase(vodId).onSuccess { sources ->
-                    _uiState.update { it.copy(sources = sources) }
-                }.onFailure { e ->
-                    // Sources error might be acceptable if detail is still loading
-                }
+            // Step 2: Load sources (reads from shared cache, now populated by step 1)
+            getVideoSourcesUseCase(vodId).onSuccess { sources ->
+                _uiState.update { it.copy(sources = sources) }
+            }.onFailure { e ->
+                _uiState.update { it.copy(sourcesError = e.message ?: "Failed to load episodes") }
             }
 
-            detailJob.join()
-            sourcesJob.join()
             _uiState.update { it.copy(isLoading = false) }
         }
     }

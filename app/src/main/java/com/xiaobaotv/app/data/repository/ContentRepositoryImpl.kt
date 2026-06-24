@@ -2,6 +2,7 @@ package com.xiaobaotv.app.data.repository
 
 import com.xiaobaotv.app.data.cache.DetailPageCache
 import com.xiaobaotv.app.data.model.toDomain
+import com.xiaobaotv.app.data.parser.ShowPageParser
 import com.xiaobaotv.app.data.parser.VodDetailParser
 import com.xiaobaotv.app.data.remote.XiaobaoApi
 import com.xiaobaotv.app.domain.model.VodContent
@@ -43,6 +44,16 @@ class ContentRepositoryImpl @Inject constructor(
                 tid = typeId,
                 ids = ids
             )
+
+            // If the API returns empty but we have a typeId, try the HTML show page
+            if (response.list.isEmpty() && typeId != null && query == null) {
+                Timber.d("API returned empty for tid=$typeId, falling back to show page HTML")
+                val showPage = fetchShowPage(typeId, page)
+                if (showPage.isNotEmpty()) {
+                    return Result.success(showPage)
+                }
+            }
+
             Result.success(response.list.map { it.toDomain() })
         } catch (e: Exception) {
             Result.failure(e)
@@ -102,6 +113,27 @@ class ContentRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "Exception fetching detail/$id.html")
             null
+        }
+    }
+
+    private suspend fun fetchShowPage(typeId: Int, page: Int): List<VodContent> = withContext(Dispatchers.IO) {
+        try {
+            val url = ShowPageParser.buildShowPageUrl(typeId, page)
+            val request = Request.Builder().url(url)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                .build()
+            val response = client.newCall(request).execute()
+
+            if (!response.isSuccessful) {
+                Timber.e("HTTP ${response.code} for show/$typeId-$page.html")
+                return@withContext emptyList()
+            }
+
+            val html = response.body?.string() ?: return@withContext emptyList()
+            ShowPageParser.parse(html, typeId)
+        } catch (e: Exception) {
+            Timber.e(e, "Exception fetching show page typeId=$typeId page=$page")
+            emptyList()
         }
     }
 }

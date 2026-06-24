@@ -42,11 +42,24 @@ object PlayPageParser {
      */
     fun extractPlaybackUrl(html: String): String? {
         try {
+            // Handle server behavior: sometimes returns HTML wrapped in a JSON string
+            // (content-type: application/json) with escaped quotes. Unwrap it first.
+            val processed = try {
+                val trimmed = html.trim()
+                if (trimmed.startsWith("\"")) {
+                    org.json.JSONTokener(trimmed).nextValue() as String
+                } else {
+                    html
+                }
+            } catch (_: Exception) {
+                html
+            }
+
             // Pattern to match "url":"http...m3u8" or similar in script tags
             // CMS has multiple "url" keys; the LAST one in the HTML is the video URL
             // (first is the CMS config: url:www.xiaobaotv.tv)
             val regex = "\"url\":\"([^\"]+)\"".toRegex()
-            val matches = regex.findAll(html).toList()
+            val matches = regex.findAll(processed).toList()
             val rawUrl = if (matches.isNotEmpty()) matches.last().groupValues[1] else null
 
             if (rawUrl != null) {

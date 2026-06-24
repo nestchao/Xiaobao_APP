@@ -1,20 +1,29 @@
 package com.xiaobaotv.app.ui.player
 
+import android.view.View
+import android.view.WindowManager
+import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.xiaobaotv.app.ui.navigation.LocalFullScreenState
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.ui.PlayerControlView
 import androidx.media3.ui.PlayerView
 
 @OptIn(UnstableApi::class)
@@ -22,10 +31,13 @@ import androidx.media3.ui.PlayerView
 fun PlayerScreen(
     vodId: Int,
     episodeIndex: Int = 0,
+    onBackClick: () -> Unit = {},
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val fullScreenState = LocalFullScreenState.current
+    var showControls by remember { mutableStateOf(true) }
 
     val exoPlayer = remember {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -52,17 +64,85 @@ fun PlayerScreen(
         onDispose { exoPlayer.release() }
     }
 
+    // Full-screen toggle (hide/show system bars)
+    val activity = LocalContext.current as? ComponentActivity
+    LaunchedEffect(fullScreenState.isActive) {
+        if (activity == null) return@LaunchedEffect
+        if (fullScreenState.isActive) {
+            activity.window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+            activity.window.decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                View.SYSTEM_UI_FLAG_FULLSCREEN or
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+        } else {
+            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+            activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+        }
+    }
+
+    // Restore system bars when leaving the screen
+    DisposableEffect(Unit) {
+        onDispose {
+            if (fullScreenState.isActive && activity != null) {
+                activity.window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+                activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+            }
+            fullScreenState.isActive = false
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (uiState.isLoading) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
         uiState.error?.let { error ->
-            Text(text = "$error", color = Color.White)
+            Text(text = "$error", color = Color.White, modifier = Modifier.align(Alignment.Center))
         }
         if (uiState.playbackUrl != null) {
-            AndroidView(factory = { ctx ->
-                PlayerView(ctx).apply { player = exoPlayer; useController = true }
-            }, modifier = Modifier.fillMaxSize())
+            // Track fullscreen state locally (PlayerView doesn't expose isFullscreen in 1.4.1)
+            var playerFullScreen = false
+            AndroidView(
+                factory = { ctx ->
+                    PlayerView(ctx).apply {
+                        player = exoPlayer
+                        useController = true
+                        // Built-in fullscreen button — appears to the right of the settings gear
+                        // in the default ExoPlayer control bar
+                        setFullscreenButtonClickListener {
+                            playerFullScreen = !playerFullScreen
+                            fullScreenState.isActive = playerFullScreen
+                        }
+                        // Sync back button visibility with ExoPlayer controller
+                        setControllerVisibilityListener(
+                            PlayerControlView.VisibilityListener { visibility: Int ->
+                                showControls = visibility == View.VISIBLE
+                            }
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // Back button overlay (only visible when controls are shown)
+        if (showControls) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+                    .size(44.dp)
+                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                    tint = Color.White
+                )
+            }
         }
     }
 }

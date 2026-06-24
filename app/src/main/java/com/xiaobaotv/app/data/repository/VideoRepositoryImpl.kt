@@ -33,9 +33,9 @@ class VideoRepositoryImpl @Inject constructor(
             val sources = PlayPageParser.parseVideoSources(html)
             if (sources.isEmpty()) {
                 Timber.e("No episodes found in detail page for vodId=$vodId")
-            } else {
-                sourcesCache[vodId] = sources
+                return@withContext Result.failure(Exception("No episodes found for this show"))
             }
+            sourcesCache[vodId] = sources
             Result.success(sources)
         } catch (e: Exception) {
             Result.failure(e)

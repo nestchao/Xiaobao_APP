@@ -74,7 +74,11 @@ fun XiaobaoNavHost(
         ) { backStackEntry ->
             val vodId = backStackEntry.arguments?.getInt("vodId") ?: 0
             val episodeNum = backStackEntry.arguments?.getInt("episodeNum") ?: 1
-            PlayerScreen(vodId = vodId, episodeIndex = episodeNum - 1)
+            PlayerScreen(
+                vodId = vodId,
+                episodeIndex = episodeNum - 1,
+                onBackClick = { navController.popBackStack() }
+            )
         }
         composable(Routes.LOGIN) {
             LoginScreen(
