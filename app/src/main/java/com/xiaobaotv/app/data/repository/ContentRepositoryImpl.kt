@@ -37,8 +37,16 @@ class ContentRepositoryImpl @Inject constructor(
 
     override suspend fun getVodDetail(id: Int): Result<VodContent> {
         return try {
-            val response = api.getVodList(mid = 1, ids = id.toString())
-            val item = response.list.find { it.vodId == id }
+            // The API does not honor the ids parameter, so we search by pagination.
+            // Fetch first 100 items (page 1), find by ID. If not found, check page 2.
+            val response = api.getVodList(mid = 1, page = 1, limit = 100)
+            var item = response.list.find { it.vodId == id }
+
+            if (item == null) {
+                val response2 = api.getVodList(mid = 1, page = 2, limit = 100)
+                item = response2.list.find { it.vodId == id }
+            }
+
             if (item != null) {
                 Result.success(item.toDomain())
             } else {
