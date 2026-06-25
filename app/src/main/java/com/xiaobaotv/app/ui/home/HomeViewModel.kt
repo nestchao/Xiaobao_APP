@@ -1,10 +1,15 @@
 package com.xiaobaotv.app.ui.home
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import coil.Coil
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.xiaobaotv.app.domain.model.VodContent
 import com.xiaobaotv.app.domain.usecase.GetVodListUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.*
@@ -22,7 +27,8 @@ data class HomeUiState(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val getVodListUseCase: GetVodListUseCase
+    private val getVodListUseCase: GetVodListUseCase,
+    @ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -47,17 +53,42 @@ class HomeViewModel @Inject constructor(
                 val tvResult = results[1]
                 val animeResult = results[2]
 
+                val movies = moviesResult.getOrDefault(emptyList())
+                val tvSeries = tvResult.getOrDefault(emptyList())
+                val anime = animeResult.getOrDefault(emptyList())
+
                 _uiState.update { state ->
                     state.copy(
                         isLoading = false,
-                        heroItems = moviesResult.getOrDefault(emptyList()).take(5),
-                        hotMovies = moviesResult.getOrDefault(emptyList()),
-                        hotTvSeries = tvResult.getOrDefault(emptyList()),
-                        hotAnime = animeResult.getOrDefault(emptyList())
+                        heroItems = movies.take(5),
+                        hotMovies = movies,
+                        hotTvSeries = tvSeries,
+                        hotAnime = anime
                     )
                 }
+
+                // Preload images for the initially visible row (movies) to avoid first-frame flash.
+                // Additional rows are preloaded as the user scrolls.
+                preloadImages(movies)
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun preloadImages(items: List<VodContent>) {
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            val imageLoader = Coil.imageLoader(context)
+            items.forEach { vod ->
+                imageLoader.enqueue(
+                    ImageRequest.Builder(context)
+                        .data(vod.pic)
+                        .size(360)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .build()
+                )
             }
         }
     }

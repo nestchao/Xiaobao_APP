@@ -46,7 +46,17 @@ object NetworkModule {
                     .header("User-Agent", "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
                     .header("X-Requested-With", "XMLHttpRequest")
                     .build()
-                chain.proceed(request)
+                val response = chain.proceed(request)
+                // Force-cache HTML responses for 5 minutes at the HTTP layer.
+                // The upstream scrape pages don't set Cache-Control headers,
+                // so without this interceptor the 10MB OkHttp cache is unused.
+                if (response.header("Content-Type")?.contains("text/html") == true) {
+                    response.newBuilder()
+                        .header("Cache-Control", "max-age=300")
+                        .build()
+                } else {
+                    response
+                }
             }
 
         if (BuildConfig.DEBUG) {

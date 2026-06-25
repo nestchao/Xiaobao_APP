@@ -49,7 +49,7 @@ class XiaobaoApp : Application(), ImageLoaderFactory {
                     .maxSizeBytes(128 * 1024 * 1024)
                     .build()
             }
-            .crossfade(300)
+            .crossfade(100)
             .build()
     }
 }

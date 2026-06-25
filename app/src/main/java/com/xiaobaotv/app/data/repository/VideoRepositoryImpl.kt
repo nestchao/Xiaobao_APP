@@ -10,7 +10,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import timber.log.Timber
-import java.util.concurrent.ConcurrentHashMap
+import java.util.LinkedHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,22 +21,36 @@ class VideoRepositoryImpl @Inject constructor(
 ) : VideoRepository {
 
     private val baseUrl = "https://www.xiaobaotv.tv"
-    private val sourcesCache = ConcurrentHashMap<Int, List<VideoSource>>()
+    private val sourcesCache = object : LinkedHashMap<Int, List<VideoSource>>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<VideoSource>>?): Boolean {
+            return size > MAX_SOURCES_CACHE
+        }
+    }
 
-    override suspend fun getVideoSources(vodId: Int): Result<List<VideoSource>> = withContext(Dispatchers.IO) {
+    @Synchronized
+    private fun getSourcesFromCache(vodId: Int): List<VideoSource>? = sourcesCache[vodId]
+
+    @Synchronized
+    private fun putSourcesInCache(vodId: Int, sources: List<VideoSource>) { sourcesCache[vodId] = sources }
+
+    override suspend fun getVideoSources(vodId: Int): Result<List<VideoSource>> {
         // Check local cache first
-        sourcesCache[vodId]?.let { return@withContext Result.success(it) }
-        try {
-            // Use shared detail cache to avoid duplicate requests
-            val html = detailCache.get(vodId)
-                ?: fetchWithRetry("$baseUrl/movie/detail/$vodId.html")
-                ?: return@withContext Result.failure(Exception("Failed to fetch detail page"))
-            val sources = PlayPageParser.parseVideoSources(html)
+        getSourcesFromCache(vodId)?.let { return Result.success(it) }
+        return try {
+            // Use shared detail cache to avoid duplicate requests.
+            // getOrFetch handles concurrent access so parallel coroutines share one fetch.
+            val html = detailCache.getOrFetch(vodId) {
+                fetchWithRetry("$baseUrl/movie/detail/$vodId.html")
+                    ?: throw Exception("Failed to fetch detail page")
+            }
+            val sources = withContext(Dispatchers.IO) {
+                PlayPageParser.parseVideoSources(html)
+            }
             if (sources.isEmpty()) {
                 Timber.e("No episodes found in detail page for vodId=$vodId")
-                return@withContext Result.failure(Exception("No episodes found for this show"))
+                return Result.failure(Exception("No episodes found for this show"))
             }
-            sourcesCache[vodId] = sources
+            putSourcesInCache(vodId, sources)
             Result.success(sources)
         } catch (e: Exception) {
             Result.failure(e)
@@ -80,5 +94,9 @@ class VideoRepositoryImpl @Inject constructor(
             }
         }
         return null
+    }
+
+    companion object {
+        private const val MAX_SOURCES_CACHE = 10
     }
 }

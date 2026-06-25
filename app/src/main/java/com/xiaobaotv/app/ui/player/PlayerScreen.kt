@@ -40,7 +40,7 @@ fun PlayerScreen(
     val fullScreenState = LocalFullScreenState.current
     var showControls by remember { mutableStateOf(true) }
 
-    val exoPlayer = remember {
+    val exoPlayer = remember(vodId) {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.xiaobaotv.tv/"))
         val cacheDataSourceFactory = androidx.media3.datasource.cache.CacheDataSource.Factory()
@@ -74,7 +74,7 @@ fun PlayerScreen(
         }
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(vodId) {
         onDispose { exoPlayer.release() }
     }
 

@@ -8,9 +8,11 @@ import timber.log.Timber
 object VodDetailParser {
 
     fun parse(html: String, vodId: Int): VodContent? {
-        return try {
-            val doc = Jsoup.parse(html)
+        return parseFromDocument(Jsoup.parse(html), vodId)
+    }
 
+    fun parseFromDocument(doc: Document, vodId: Int): VodContent? {
+        return try {
             val name = doc.selectFirst("h1.title")?.text()
                 ?: return null
 
@@ -19,7 +21,7 @@ object VodDetailParser {
             val area = extractLabeledText(doc, "地区：")
             val year = extractLabeledText(doc, "年份：")
             val remarks = extractRemarks(doc)
-            val score = extractScore(doc, html)
+            val score = extractScore(doc)
             val actor = extractJoinedLinks(doc, "主演：")
             val director = extractJoinedLinks(doc, "导演：")
             val content = extractFullDescription(doc)
@@ -70,10 +72,9 @@ object VodDetailParser {
         return null
     }
 
-    private fun extractScore(doc: Document, html: String): String? {
+    private fun extractScore(doc: Document): String? {
         doc.selectFirst("span.branch")?.let { return it.text().trim() }
-        val regex = Regex("""<span\s+class="branch">([^<]+)</span>""")
-        return regex.find(html)?.groupValues?.get(1)?.trim()
+        return null
     }
 
     private fun extractJoinedLinks(doc: Document, label: String): String? {

@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,7 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentOnVodClick by rememberUpdatedState(onVodClick)
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Search Bar
@@ -68,8 +70,8 @@ fun SearchScreen(
                 contentPadding = PaddingValues(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(uiState.results) { vod ->
-                    VodPosterCard(vod = vod, onClick = { onVodClick(vod.id) })
+                items(uiState.results, key = { it.id }) { vod ->
+                    VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
                 }
             }
         }

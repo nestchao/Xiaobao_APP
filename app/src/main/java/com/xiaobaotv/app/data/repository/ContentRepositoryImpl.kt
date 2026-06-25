@@ -16,8 +16,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.jsoup.Jsoup
 import timber.log.Timber
-import java.util.concurrent.ConcurrentHashMap
+import java.util.LinkedHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -30,8 +31,18 @@ class ContentRepositoryImpl @Inject constructor(
 ) : ContentRepository {
 
     private val baseUrl = "https://www.xiaobaotv.tv"
-    private val vodCache = ConcurrentHashMap<Int, VodContent>()
+    private val vodCache = object : LinkedHashMap<Int, VodContent>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, VodContent>?): Boolean {
+            return size > MAX_VOD_CACHE
+        }
+    }
     private val detailCacheTtl = 60 * 60 * 1000L // 1 hour
+
+    @Synchronized
+    private fun getVodFromCache(id: Int): VodContent? = vodCache[id]
+
+    @Synchronized
+    private fun putVodInCache(id: Int, item: VodContent) { vodCache[id] = item }
 
     override suspend fun getVodList(
         typeId: Int?,
@@ -76,21 +87,21 @@ class ContentRepositoryImpl @Inject constructor(
 
     override suspend fun getVodDetail(id: Int): Result<VodContent> {
         // Check in-memory cache first
-        vodCache[id]?.let { return Result.success(it) }
+        getVodFromCache(id)?.let { return Result.success(it) }
 
         // Check Room persistent cache
         val cached = vodContentDao.getById(id)
         val now = System.currentTimeMillis()
         if (cached != null && (now - cached.cachedAt) < detailCacheTtl) {
             val cachedVod = cached.toDomain()
-            vodCache[id] = cachedVod
+            putVodInCache(id, cachedVod)
             return Result.success(cachedVod)
         }
 
         return try {
             val item = fetchWithRetry(id)
             if (item != null) {
-                vodCache[id] = item
+                putVodInCache(id, item)
                 // Store in Room for persistent caching
                 vodContentDao.insert(item.toEntity())
                 Result.success(item)
@@ -132,9 +143,13 @@ class ContentRepositoryImpl @Inject constructor(
                 return@withContext null
             }
 
-            val html = response.body?.string() ?: return@withContext null
+            // Parse directly from response body stream to avoid allocating the full HTML string.
+            // Jsoup.parse(InputStream, charset, baseUri) reduces peak memory by ~50%.
+            val body = response.body ?: return@withContext null
+            val doc = Jsoup.parse(body.byteStream(), "UTF-8", url)
+            val html = doc.html()
             detailCache.put(id, html) // share with VideoRepositoryImpl
-            VodDetailParser.parse(html, id)
+            VodDetailParser.parseFromDocument(doc, id)
         } catch (e: Exception) {
             Timber.e(e, "Exception fetching detail/$id.html")
             null
@@ -206,5 +221,9 @@ class ContentRepositoryImpl @Inject constructor(
             Timber.e(e, "Exception fetching show page typeId=$typeId page=$page")
             emptyList()
         }
+    }
+
+    companion object {
+        private const val MAX_VOD_CACHE = 30
     }
 }

@@ -1,13 +1,14 @@
 package com.xiaobaotv.app.ui.home
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,6 +22,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentOnVodClick by rememberUpdatedState(onVodClick)
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading) {
@@ -47,9 +49,13 @@ fun HomeScreen(
             // Movie Row
             item {
                 SectionHeader(title = "最新电影", onMoreClick = {})
-                LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    items(uiState.hotMovies) { vod ->
-                        VodPosterCard(vod = vod, onClick = { onVodClick(vod.id) })
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp)
+                ) {
+                    uiState.hotMovies.forEach { vod ->
+                        VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
                     }
                 }
             }
@@ -57,9 +63,13 @@ fun HomeScreen(
             // TV Row
             item {
                 SectionHeader(title = "热门剧集", onMoreClick = {})
-                LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    items(uiState.hotTvSeries) { vod ->
-                        VodPosterCard(vod = vod, onClick = { onVodClick(vod.id) })
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp)
+                ) {
+                    uiState.hotTvSeries.forEach { vod ->
+                        VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
                     }
                 }
             }
@@ -67,9 +77,13 @@ fun HomeScreen(
             // Anime Row
             item {
                 SectionHeader(title = "热门动漫", onMoreClick = {})
-                LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    items(uiState.hotAnime) { vod ->
-                        VodPosterCard(vod = vod, onClick = { onVodClick(vod.id) })
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp)
+                ) {
+                    uiState.hotAnime.forEach { vod ->
+                        VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
                     }
                 }
             }
