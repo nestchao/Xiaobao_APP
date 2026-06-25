@@ -10,6 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.LoadState
+import androidx.paging.compose.collectAsLazyPagingItems
 import com.xiaobaotv.app.ui.components.VodPosterCard
 
 @Composable
@@ -17,7 +20,8 @@ fun CategoryScreen(
     onVodClick: (Int) -> Unit,
     viewModel: CategoryViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pagingItems = viewModel.pagingDataFlow.collectAsLazyPagingItems()
 
     val categories = listOf(
         1 to "电影",
@@ -42,8 +46,8 @@ fun CategoryScreen(
             }
         }
 
-        Box(modifier = Modifier.fillWeight(1f)) {
-            if (uiState.items.isEmpty() && uiState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (pagingItems.itemCount == 0 && pagingItems.loadState.refresh is LoadState.Loading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
 
@@ -52,19 +56,21 @@ fun CategoryScreen(
                 contentPadding = PaddingValues(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(uiState.items) { vod ->
-                    VodPosterCard(vod = vod, onClick = { onVodClick(vod.id) })
-                }
-
-                // Simple infinite scroll trigger
-                item {
-                    LaunchedEffect(Unit) {
-                        viewModel.loadNextPage()
+                items(count = pagingItems.itemCount) { index ->
+                    val vod = pagingItems[index]
+                    if (vod != null) {
+                        VodPosterCard(vod = vod, onClick = { onVodClick(vod.id) })
                     }
                 }
+            }
+
+            uiState.error?.let { error ->
+                Text(
+                    text = error,
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         }
     }
 }
-
-private fun Modifier.fillWeight(weight: Float) = this.then(Modifier.fillMaxHeight().fillMaxWidth())

@@ -1,5 +1,6 @@
 package com.xiaobaotv.app.data.di
 
+import android.app.Application
 import com.squareup.moshi.Moshi
 import com.xiaobaotv.app.BuildConfig
 import com.xiaobaotv.app.data.remote.XiaobaoApi
@@ -7,6 +8,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -32,8 +34,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(application: Application): OkHttpClient {
+        val cache = Cache(application.cacheDir.resolve("http_cache"), 10L * 1024 * 1024) // 10 MB
         val builder = OkHttpClient.Builder()
+            .cache(cache)
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
             .writeTimeout(READ_TIMEOUT, TimeUnit.SECONDS)

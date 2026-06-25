@@ -2,6 +2,8 @@ package com.xiaobaotv.app.ui.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.media3.datasource.cache.Cache
+import com.xiaobaotv.app.data.cache.PlaybackUrlCache
 import com.xiaobaotv.app.domain.model.Episode
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.usecase.GetPlaybackUrlUseCase
@@ -24,7 +26,9 @@ data class PlayerUiState(
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val getVideoSourcesUseCase: GetVideoSourcesUseCase,
-    private val getPlaybackUrlUseCase: GetPlaybackUrlUseCase
+    private val getPlaybackUrlUseCase: GetPlaybackUrlUseCase,
+    private val playbackUrlCache: PlaybackUrlCache,
+    val exoPlayerCache: Cache
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlayerUiState())
@@ -34,12 +38,20 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, vodId = vodId, currentEpisodeIndex = episodeIndex) }
 
+            // Check pre-fetched cache first
+            playbackUrlCache.get(vodId)?.let { url ->
+                _uiState.update { it.copy(playbackUrl = url) }
+                // Don't return — still need to load sources for episode switching
+            }
+
             getVideoSourcesUseCase(vodId).onSuccess { sources ->
                 _uiState.update { it.copy(sources = sources) }
-                if (sources.isNotEmpty()) {
+                if (sources.isNotEmpty() && _uiState.value.playbackUrl == null) {
                     loadPlaybackUrl(sources[0].episodes.getOrNull(episodeIndex))
-                } else {
+                } else if (sources.isEmpty()) {
                     _uiState.update { it.copy(isLoading = false, error = "No sources found") }
+                } else {
+                    _uiState.update { it.copy(isLoading = false) }
                 }
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message) }

@@ -2,8 +2,10 @@ package com.xiaobaotv.app.ui.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xiaobaotv.app.data.cache.PlaybackUrlCache
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.model.VodContent
+import com.xiaobaotv.app.domain.usecase.GetPlaybackUrlUseCase
 import com.xiaobaotv.app.domain.usecase.GetVideoSourcesUseCase
 import com.xiaobaotv.app.domain.usecase.GetVodDetailUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +24,9 @@ data class DetailUiState(
 @HiltViewModel
 class DetailViewModel @Inject constructor(
     private val getVodDetailUseCase: GetVodDetailUseCase,
-    private val getVideoSourcesUseCase: GetVideoSourcesUseCase
+    private val getVideoSourcesUseCase: GetVideoSourcesUseCase,
+    private val getPlaybackUrlUseCase: GetPlaybackUrlUseCase,
+    private val playbackUrlCache: PlaybackUrlCache
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DetailUiState())
@@ -42,6 +46,16 @@ class DetailViewModel @Inject constructor(
             // Step 2: Load sources (reads from shared cache, now populated by step 1)
             getVideoSourcesUseCase(vodId).onSuccess { sources ->
                 _uiState.update { it.copy(sources = sources) }
+
+                // Pre-fetch the first episode's playback URL
+                val firstEpisode = sources.firstOrNull()?.episodes?.firstOrNull()
+                if (firstEpisode != null) {
+                    launch {
+                        getPlaybackUrlUseCase(firstEpisode.url).onSuccess { url ->
+                            playbackUrlCache.put(vodId, url)
+                        }
+                    }
+                }
             }.onFailure { e ->
                 _uiState.update { it.copy(sourcesError = e.message ?: "Failed to load episodes") }
             }

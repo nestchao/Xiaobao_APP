@@ -5,6 +5,7 @@ import com.xiaobaotv.app.data.parser.PlayPageParser
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.repository.VideoRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -58,24 +59,24 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun fetchWithRetry(url: String): String? {
+    private suspend fun fetchWithRetry(url: String): String? {
         var attempt = 0
         val maxAttempts = 2
         while (attempt < maxAttempts) {
             try {
                 val request = Request.Builder().url(url).build()
-                val response = client.newCall(request).execute()
+                val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
                 if (!response.isSuccessful) {
                     Timber.w("HTTP ${response.code} fetching $url (attempt ${attempt + 1})")
                     attempt++
-                    if (attempt < maxAttempts) Thread.sleep(1000L * attempt)
+                    if (attempt < maxAttempts) delay(1000L * attempt)
                     continue
                 }
                 return response.body?.string()
             } catch (e: Exception) {
                 Timber.w(e, "Network error fetching $url (attempt ${attempt + 1})")
                 attempt++
-                if (attempt < maxAttempts) Thread.sleep(1000L * attempt)
+                if (attempt < maxAttempts) delay(1000L * attempt)
             }
         }
         return null

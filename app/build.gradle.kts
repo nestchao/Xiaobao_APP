@@ -72,10 +72,15 @@ dependencies {
 
     // Core & Activity
     implementation(libs.core.ktx)
+    implementation(libs.core.splashscreen)
     implementation(libs.activity.compose)
 
     // Navigation
     implementation(libs.navigation.compose)
+
+    // Paging
+    implementation(libs.paging.runtime.ktx)
+    implementation(libs.paging.compose)
 
     // Lifecycle
     implementation(libs.lifecycle.runtime.compose)

@@ -1,6 +1,9 @@
 package com.xiaobaotv.app.data.repository
 
 import com.xiaobaotv.app.data.cache.DetailPageCache
+import com.xiaobaotv.app.data.local.VodContentDao
+import com.xiaobaotv.app.data.local.toDomain
+import com.xiaobaotv.app.data.local.toEntity
 import com.xiaobaotv.app.data.model.toDomain
 import com.xiaobaotv.app.data.parser.SearchPageParser
 import com.xiaobaotv.app.data.parser.ShowPageParser
@@ -22,11 +25,13 @@ import javax.inject.Singleton
 class ContentRepositoryImpl @Inject constructor(
     private val api: XiaobaoApi,
     private val client: OkHttpClient,
-    private val detailCache: DetailPageCache
+    private val detailCache: DetailPageCache,
+    private val vodContentDao: VodContentDao
 ) : ContentRepository {
 
     private val baseUrl = "https://www.xiaobaotv.tv"
     private val vodCache = ConcurrentHashMap<Int, VodContent>()
+    private val detailCacheTtl = 60 * 60 * 1000L // 1 hour
 
     override suspend fun getVodList(
         typeId: Int?,
@@ -70,13 +75,24 @@ class ContentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getVodDetail(id: Int): Result<VodContent> {
-        // Check local cache first
+        // Check in-memory cache first
         vodCache[id]?.let { return Result.success(it) }
+
+        // Check Room persistent cache
+        val cached = vodContentDao.getById(id)
+        val now = System.currentTimeMillis()
+        if (cached != null && (now - cached.cachedAt) < detailCacheTtl) {
+            val cachedVod = cached.toDomain()
+            vodCache[id] = cachedVod
+            return Result.success(cachedVod)
+        }
 
         return try {
             val item = fetchWithRetry(id)
             if (item != null) {
                 vodCache[id] = item
+                // Store in Room for persistent caching
+                vodContentDao.insert(item.toEntity())
                 Result.success(item)
             } else {
                 Result.failure(Exception("Not found"))

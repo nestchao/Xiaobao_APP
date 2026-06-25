@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,7 +35,7 @@ fun PlayerScreen(
     onBackClick: () -> Unit = {},
     viewModel: PlayerViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val fullScreenState = LocalFullScreenState.current
     var showControls by remember { mutableStateOf(true) }
@@ -42,8 +43,21 @@ fun PlayerScreen(
     val exoPlayer = remember {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
             .setDefaultRequestProperties(mapOf("Referer" to "https://www.xiaobaotv.tv/"))
+        val cacheDataSourceFactory = androidx.media3.datasource.cache.CacheDataSource.Factory()
+            .setCache(viewModel.exoPlayerCache)
+            .setUpstreamDataSourceFactory(dataSourceFactory)
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSourceFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
+            .setLoadControl(
+                androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        30_000,  // min buffer: 30s (up from 15s default)
+                        120_000, // max buffer: 120s (up from 50s default)
+                        2_500,   // buffer for playback start: 2.5s (default)
+                        5_000    // buffer for rebuffer: 5s (default)
+                    )
+                    .build()
+            )
             .build()
     }
 
