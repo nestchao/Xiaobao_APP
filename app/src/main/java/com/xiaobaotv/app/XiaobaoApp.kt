@@ -5,34 +5,17 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import com.google.firebase.FirebaseApp
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @HiltAndroidApp
 class XiaobaoApp : Application(), ImageLoaderFactory {
 
-    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     override fun onCreate() {
         super.onCreate()
 
-        // Firebase init on background thread to avoid blocking startup
-        backgroundScope.launch {
-            FirebaseApp.initializeApp(this@XiaobaoApp)
-
-            if (BuildConfig.DEBUG) {
-                Timber.plant(Timber.DebugTree())
-            }
-
-            FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(
-                !BuildConfig.DEBUG
-            )
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
         }
     }
 

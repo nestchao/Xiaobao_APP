@@ -6,10 +6,23 @@ import androidx.media3.datasource.cache.Cache
 import com.xiaobaotv.app.data.cache.PlaybackUrlCache
 import com.xiaobaotv.app.domain.model.Episode
 import com.xiaobaotv.app.domain.model.VideoSource
+import com.xiaobaotv.app.domain.model.VodContent
+import com.xiaobaotv.app.domain.model.WatchHistoryItem
 import com.xiaobaotv.app.domain.usecase.GetPlaybackUrlUseCase
 import com.xiaobaotv.app.domain.usecase.GetVideoSourcesUseCase
+import com.xiaobaotv.app.domain.usecase.GetVodDetailUseCase
+import com.xiaobaotv.app.domain.usecase.GetWatchHistoryItemUseCase
+import com.xiaobaotv.app.domain.usecase.SaveWatchHistoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,6 +33,7 @@ data class PlayerUiState(
     val currentSourceIndex: Int = 0,
     val currentEpisodeIndex: Int = 0,
     val playbackUrl: String? = null,
+    val savedPositionMs: Long = 0L,
     val error: String? = null
 )
 
@@ -27,6 +41,9 @@ data class PlayerUiState(
 class PlayerViewModel @Inject constructor(
     private val getVideoSourcesUseCase: GetVideoSourcesUseCase,
     private val getPlaybackUrlUseCase: GetPlaybackUrlUseCase,
+    private val getVodDetailUseCase: GetVodDetailUseCase,
+    private val getWatchHistoryItemUseCase: GetWatchHistoryItemUseCase,
+    private val saveWatchHistoryUseCase: SaveWatchHistoryUseCase,
     private val playbackUrlCache: PlaybackUrlCache,
     val exoPlayerCache: Cache
 ) : ViewModel() {
@@ -34,25 +51,59 @@ class PlayerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
+    private val _currentPositionMs = MutableStateFlow(0L)
+    private val _durationMs = MutableStateFlow(0L)
+
+    private var vodContent: VodContent? = null
+    private var saveJob: Job? = null
+
+    // Dedicated scope for final save — viewModelScope is cancelled before onCleared()
+    private val saveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     fun loadVideoInfo(vodId: Int, episodeIndex: Int = 0) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, vodId = vodId, currentEpisodeIndex = episodeIndex) }
+            _uiState.update { it.copy(isLoading = true, vodId = vodId) }
 
-            // Check pre-fetched cache first
-            playbackUrlCache.get(vodId)?.let { url ->
+            // Check pre-fetched cache using both vodId and the target episode index
+            playbackUrlCache.get(vodId, episodeIndex)?.let { url ->
                 _uiState.update { it.copy(playbackUrl = url) }
-                // Don't return — still need to load sources for episode switching
             }
 
+            // Load vod detail for name/pic
+            getVodDetailUseCase(vodId).onSuccess { content ->
+                vodContent = content
+            }
+
+            // Check history for saved position and source index
+            val history = getWatchHistoryItemUseCase(vodId)
+            val finalSourceIndex = history?.sourceIndex ?: 0
+            val finalEpisodeIndex = episodeIndex
+
             getVideoSourcesUseCase(vodId).onSuccess { sources ->
-                _uiState.update { it.copy(sources = sources) }
+                _uiState.update {
+                    it.copy(
+                        sources = sources,
+                        currentSourceIndex = finalSourceIndex,
+                        currentEpisodeIndex = finalEpisodeIndex
+                    )
+                }
+
+                // Restore position if same episode and significant progress
+                if (history != null && history.episodeIndex == finalEpisodeIndex && history.positionMs > 5000L) {
+                    _uiState.update { it.copy(savedPositionMs = history.positionMs) }
+                }
+
                 if (sources.isNotEmpty() && _uiState.value.playbackUrl == null) {
-                    loadPlaybackUrl(sources[0].episodes.getOrNull(episodeIndex))
+                    val targetEpisode = sources.getOrNull(finalSourceIndex)?.episodes?.getOrNull(finalEpisodeIndex)
+                    loadPlaybackUrl(targetEpisode)
                 } else if (sources.isEmpty()) {
                     _uiState.update { it.copy(isLoading = false, error = "No sources found") }
                 } else {
                     _uiState.update { it.copy(isLoading = false) }
                 }
+
+                startProgressSavingLoop()
+
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -65,7 +116,7 @@ class PlayerViewModel @Inject constructor(
         val episode = source?.episodes?.getOrNull(episodeIndex)
 
         if (episode != null) {
-            _uiState.update { it.copy(currentEpisodeIndex = episodeIndex) }
+            _uiState.update { it.copy(currentEpisodeIndex = episodeIndex, savedPositionMs = 0L) }
             loadPlaybackUrl(episode)
         }
     }
@@ -80,6 +131,63 @@ class PlayerViewModel @Inject constructor(
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
+        }
+    }
+
+    fun updatePlaybackState(positionMs: Long, durationMs: Long) {
+        _currentPositionMs.value = positionMs
+        if (durationMs > 0) {
+            _durationMs.value = durationMs
+        }
+    }
+
+    private fun startProgressSavingLoop() {
+        saveJob?.cancel()
+        saveJob = viewModelScope.launch {
+            while (true) {
+                delay(10000L)
+                saveProgressInternal()
+            }
+        }
+    }
+
+    fun saveOnPause() {
+        saveScope.launch {
+            saveProgressInternal()
+        }
+    }
+
+    private suspend fun saveProgressInternal() {
+        val vod = vodContent ?: return
+        val state = _uiState.value
+        val source = state.sources.getOrNull(state.currentSourceIndex) ?: return
+        val episode = source.episodes.getOrNull(state.currentEpisodeIndex) ?: return
+        val position = _currentPositionMs.value
+        val duration = _durationMs.value
+
+        if (position <= 0) return
+
+        val historyItem = WatchHistoryItem(
+            vodId = vod.id,
+            name = vod.name,
+            pic = vod.pic,
+            sourceIndex = state.currentSourceIndex,
+            sourceName = source.name,
+            episodeIndex = state.currentEpisodeIndex,
+            episodeName = episode.name,
+            positionMs = position,
+            durationMs = duration,
+            lastWatchedAt = System.currentTimeMillis()
+        )
+        saveWatchHistoryUseCase(historyItem)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        saveJob?.cancel()
+        // Save one final time — saveScope outlives viewModelScope
+        saveScope.launch {
+            saveProgressInternal()
         }
     }
 }

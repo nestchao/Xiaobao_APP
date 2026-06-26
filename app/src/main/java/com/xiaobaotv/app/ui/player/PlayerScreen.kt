@@ -10,6 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +29,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerControlView
 import androidx.media3.ui.PlayerView
+import kotlinx.coroutines.delay
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -51,10 +55,10 @@ fun PlayerScreen(
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
                     .setBufferDurationsMs(
-                        30_000,  // min buffer: 30s (up from 15s default)
-                        120_000, // max buffer: 120s (up from 50s default)
-                        2_500,   // buffer for playback start: 2.5s (default)
-                        5_000    // buffer for rebuffer: 5s (default)
+                        30_000,
+                        120_000,
+                        2_500,
+                        5_000
                     )
                     .build()
             )
@@ -69,8 +73,35 @@ fun PlayerScreen(
         uiState.playbackUrl?.let { url ->
             val mediaItem = MediaItem.fromUri(url)
             exoPlayer.setMediaItem(mediaItem)
+            if (uiState.savedPositionMs > 0L) {
+                exoPlayer.seekTo(uiState.savedPositionMs)
+            }
             exoPlayer.prepare()
             exoPlayer.play()
+        }
+    }
+
+    // Position polling — feed position to ViewModel for periodic saves
+    LaunchedEffect(exoPlayer) {
+        while (true) {
+            if (exoPlayer.isPlaying) {
+                viewModel.updatePlaybackState(exoPlayer.currentPosition, exoPlayer.duration)
+            }
+            delay(1500L)
+        }
+    }
+
+    // Lifecycle-aware save on pause/stop
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                viewModel.saveOnPause()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -78,7 +109,7 @@ fun PlayerScreen(
         onDispose { exoPlayer.release() }
     }
 
-    // Full-screen toggle (hide/show system bars)
+    // Full-screen toggle
     val activity = LocalContext.current as? ComponentActivity
     LaunchedEffect(fullScreenState.isActive) {
         if (activity == null) return@LaunchedEffect
@@ -94,7 +125,6 @@ fun PlayerScreen(
         }
     }
 
-    // Restore system bars when leaving the screen
     DisposableEffect(Unit) {
         onDispose {
             if (fullScreenState.isActive && activity != null) {
@@ -116,20 +146,16 @@ fun PlayerScreen(
             Text(text = "$error", color = Color.White, modifier = Modifier.align(Alignment.Center))
         }
         if (uiState.playbackUrl != null) {
-            // Track fullscreen state locally (PlayerView doesn't expose isFullscreen in 1.4.1)
             var playerFullScreen = false
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
                         player = exoPlayer
                         useController = true
-                        // Built-in fullscreen button — appears to the right of the settings gear
-                        // in the default ExoPlayer control bar
                         setFullscreenButtonClickListener {
                             playerFullScreen = !playerFullScreen
                             fullScreenState.isActive = playerFullScreen
                         }
-                        // Sync back button visibility with ExoPlayer controller
                         setControllerVisibilityListener(
                             PlayerControlView.VisibilityListener { visibility: Int ->
                                 showControls = visibility == View.VISIBLE
@@ -141,7 +167,7 @@ fun PlayerScreen(
             )
         }
 
-        // Back button overlay (only visible when controls are shown)
+        // Back button overlay
         if (showControls) {
             IconButton(
                 onClick = onBackClick,

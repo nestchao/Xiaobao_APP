@@ -6,13 +6,18 @@ import com.xiaobaotv.app.data.cache.DetailPageCache
 import com.xiaobaotv.app.data.cache.PlaybackUrlCache
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.model.VodContent
+import com.xiaobaotv.app.domain.model.WatchHistoryItem
 import com.xiaobaotv.app.domain.usecase.GetPlaybackUrlUseCase
 import com.xiaobaotv.app.domain.usecase.GetVideoSourcesUseCase
 import com.xiaobaotv.app.domain.usecase.GetVodDetailUseCase
+import com.xiaobaotv.app.domain.usecase.GetWatchHistoryItemUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -20,6 +25,7 @@ data class DetailUiState(
     val isLoading: Boolean = false,
     val vod: VodContent? = null,
     val sources: List<VideoSource> = emptyList(),
+    val historyItem: WatchHistoryItem? = null,
     val error: String? = null,
     val sourcesError: String? = null,
     val isFromCache: Boolean = false
@@ -30,6 +36,7 @@ class DetailViewModel @Inject constructor(
     private val getVodDetailUseCase: GetVodDetailUseCase,
     private val getVideoSourcesUseCase: GetVideoSourcesUseCase,
     private val getPlaybackUrlUseCase: GetPlaybackUrlUseCase,
+    private val getWatchHistoryItemUseCase: GetWatchHistoryItemUseCase,
     private val playbackUrlCache: PlaybackUrlCache,
     private val detailPageCache: DetailPageCache
 ) : ViewModel() {
@@ -41,24 +48,22 @@ class DetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, sourcesError = null) }
 
-            // Launch detail and sources in parallel — DetailPageCache.getOrFetch
-            // deduplicates the underlying HTML fetch so only one network call is made.
             val detailDeferred = async { getVodDetailUseCase(vodId) }
             val sourcesDeferred = async { getVideoSourcesUseCase(vodId) }
+            val historyDeferred = async { getWatchHistoryItemUseCase(vodId) }
 
-            // Await both concurrently
             detailDeferred.await().onSuccess { vod ->
                 _uiState.update { it.copy(vod = vod) }
             }.onFailure { e ->
                 _uiState.update { it.copy(error = e.message) }
             }
 
+            val history = historyDeferred.await()
+            _uiState.update { it.copy(historyItem = history) }
+
             sourcesDeferred.await().onSuccess { sources ->
                 applySources(vodId, sources)
             }.onFailure { e ->
-                // Automatic retry: clear the shared HTML cache so the next
-                // attempt fetches a fresh page (the cached HTML may have been
-                // incomplete or formatted differently).
                 detailPageCache.remove(vodId)
                 delay(1500L)
                 getVideoSourcesUseCase(vodId).onSuccess { sources ->
@@ -77,12 +82,11 @@ class DetailViewModel @Inject constructor(
     private fun applySources(vodId: Int, sources: List<VideoSource>) {
         _uiState.update { it.copy(sources = sources) }
 
-        // Pre-fetch the first episode's playback URL
         val firstEpisode = sources.firstOrNull()?.episodes?.firstOrNull()
         if (firstEpisode != null) {
             viewModelScope.launch {
                 getPlaybackUrlUseCase(firstEpisode.url).onSuccess { url ->
-                    playbackUrlCache.put(vodId, url)
+                    playbackUrlCache.put(vodId, 0, url)
                 }
             }
         }

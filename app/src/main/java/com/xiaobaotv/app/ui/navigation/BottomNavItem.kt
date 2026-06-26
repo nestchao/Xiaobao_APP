@@ -1,8 +1,14 @@
 package com.xiaobaotv.app.ui.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class BottomNavItem(
@@ -32,14 +38,14 @@ sealed class BottomNavItem(
         unselectedIcon = Icons.Outlined.Search
     )
 
-    data object Profile : BottomNavItem(
-        route = "profile",
-        label = "我的",
-        selectedIcon = Icons.Filled.Person,
-        unselectedIcon = Icons.Outlined.Person
+    data object History : BottomNavItem(
+        route = "history",
+        label = "历史",
+        selectedIcon = Icons.Filled.History,
+        unselectedIcon = Icons.Outlined.History
     )
 
     companion object {
-        val items = listOf(Home, Category, Search, Profile)
+        val items = listOf(Home, Category, Search, History)
     }
 }

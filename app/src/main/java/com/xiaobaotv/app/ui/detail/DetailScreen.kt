@@ -3,9 +3,6 @@ package com.xiaobaotv.app.ui.detail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
@@ -24,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.AsyncImage
 import coil.compose.SubcomposeAsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,7 +77,7 @@ fun DetailScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // Backdrop & Poster Header
+                    // Backdrop
                     item {
                         Box(modifier = Modifier.height(300.dp).fillMaxWidth()) {
                             SubcomposeAsyncImage(
@@ -138,15 +134,26 @@ fun DetailScreen(
                             }
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // Play Button
+                            // Play Button — shows "继续播放" if history exists
+                            val history = uiState.historyItem
+                            val buttonText = if (history != null && history.durationMs > 0) {
+                                val progress = (history.positionMs * 100 / history.durationMs).toInt().coerceIn(0, 100)
+                                "继续播放 ${history.episodeName} (已看 $progress%)"
+                            } else if (history != null) {
+                                "继续播放 ${history.episodeName}"
+                            } else {
+                                "立即播放"
+                            }
+                            val targetEpisodeNum = if (history != null) history.episodeIndex + 1 else 1
+
                             Button(
-                                onClick = { onPlayClick(vod.id, 1) },
+                                onClick = { onPlayClick(vod.id, targetEpisodeNum) },
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = MaterialTheme.shapes.medium
                             ) {
                                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("立即播放")
+                                Text(buttonText)
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
@@ -176,7 +183,6 @@ fun DetailScreen(
 
                         val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
                         item {
-                            // Use a FlowRow or similar for episodes
                             Column(modifier = Modifier.padding(horizontal = 8.dp)) {
                                 val rows = episodes.chunked(4)
                                 rows.forEach { row ->
@@ -196,7 +202,6 @@ fun DetailScreen(
                                                 )
                                             }
                                         }
-                                        // Pad empty space if row is not full
                                         repeat(4 - row.size) {
                                             Spacer(modifier = Modifier.weight(1f).padding(4.dp))
                                         }

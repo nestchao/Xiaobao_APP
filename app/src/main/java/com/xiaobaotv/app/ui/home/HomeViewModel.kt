@@ -7,12 +7,19 @@ import coil.Coil
 import coil.request.CachePolicy
 import coil.request.ImageRequest
 import com.xiaobaotv.app.domain.model.VodContent
+import com.xiaobaotv.app.domain.model.WatchHistoryItem
 import com.xiaobaotv.app.domain.usecase.GetVodListUseCase
+import com.xiaobaotv.app.domain.usecase.GetWatchHistoryUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,12 +29,14 @@ data class HomeUiState(
     val hotMovies: List<VodContent> = emptyList(),
     val hotTvSeries: List<VodContent> = emptyList(),
     val hotAnime: List<VodContent> = emptyList(),
+    val continueWatchingList: List<WatchHistoryItem> = emptyList(),
     val error: String? = null
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getVodListUseCase: GetVodListUseCase,
+    private val getWatchHistoryUseCase: GetWatchHistoryUseCase,
     @ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
 
@@ -36,13 +45,21 @@ class HomeViewModel @Inject constructor(
 
     init {
         loadHomeContent()
+        observeWatchHistory()
+    }
+
+    private fun observeWatchHistory() {
+        getWatchHistoryUseCase()
+            .onEach { historyList ->
+                _uiState.update { it.copy(continueWatchingList = historyList.take(10)) }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun loadHomeContent() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            // Type IDs: 1=Movie, 2=TV, 3=Variety, 4=Anime
             try {
                 val moviesDeferred = async { getVodListUseCase(typeId = 1, limit = 10) }
                 val tvDeferred = async { getVodListUseCase(typeId = 2, limit = 10) }
@@ -67,8 +84,6 @@ class HomeViewModel @Inject constructor(
                     )
                 }
 
-                // Preload images for the initially visible row (movies) to avoid first-frame flash.
-                // Additional rows are preloaded as the user scrolls.
                 preloadImages(movies)
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }

@@ -2,10 +2,10 @@ package com.xiaobaotv.app.di
 
 import com.xiaobaotv.app.data.repository.ContentRepositoryImpl
 import com.xiaobaotv.app.data.repository.VideoRepositoryImpl
-import com.xiaobaotv.app.data.repository.AuthRepositoryImpl
+import com.xiaobaotv.app.data.repository.WatchHistoryRepositoryImpl
 import com.xiaobaotv.app.domain.repository.ContentRepository
 import com.xiaobaotv.app.domain.repository.VideoRepository
-import com.xiaobaotv.app.domain.repository.AuthRepository
+import com.xiaobaotv.app.domain.repository.WatchHistoryRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -30,7 +30,7 @@ abstract class RepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindAuthRepository(
-        authRepositoryImpl: AuthRepositoryImpl
-    ): AuthRepository
+    abstract fun bindWatchHistoryRepository(
+        watchHistoryRepositoryImpl: WatchHistoryRepositoryImpl
+    ): WatchHistoryRepository
 }

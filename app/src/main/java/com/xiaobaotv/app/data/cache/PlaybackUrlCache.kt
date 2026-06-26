@@ -11,20 +11,20 @@ import javax.inject.Singleton
  */
 @Singleton
 class PlaybackUrlCache @Inject constructor() {
-    private val cache = object : LinkedHashMap<Int, String>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, String>?): Boolean {
+    private val cache = object : LinkedHashMap<String, String>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
             return size > MAX_ENTRIES
         }
     }
 
     @Synchronized
-    fun get(vodId: Int): String? = cache[vodId]
+    fun get(vodId: Int, episodeIndex: Int): String? = cache["$vodId-$episodeIndex"]
 
     @Synchronized
-    fun put(vodId: Int, url: String) { cache[vodId] = url }
+    fun put(vodId: Int, episodeIndex: Int, url: String) { cache["$vodId-$episodeIndex"] = url }
 
     @Synchronized
-    fun remove(vodId: Int) { cache.remove(vodId) }
+    fun remove(vodId: Int, episodeIndex: Int) { cache.remove("$vodId-$episodeIndex") }
 
     @Synchronized
     fun clear() { cache.clear() }

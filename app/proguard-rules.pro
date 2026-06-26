@@ -18,10 +18,6 @@
 # Keep Jsoup (reflection-based)
 -keep class org.jsoup.** { *; }
 
-# Firebase
--keep class com.google.firebase.** { *; }
--dontwarn com.google.firebase.**
-
 # OkHttp
 -dontwarn okhttp3.**
 -dontwarn okio.**
