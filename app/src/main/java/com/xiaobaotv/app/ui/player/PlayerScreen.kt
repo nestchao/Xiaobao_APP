@@ -169,24 +169,52 @@ fun PlayerScreen(
                             playerFullScreen = !playerFullScreen
                             fullScreenState.isActive = playerFullScreen
                         }
+                        var controllerVisible = true
+                        // Delayed controls toggle — waits to confirm this isn't the start of a double-tap
+                        val showControlsRunnable = Runnable {
+                            if (controllerVisible) hideController() else showController()
+                        }
                         setControllerVisibilityListener(
                             PlayerControlView.VisibilityListener { visibility: Int ->
+                                controllerVisible = visibility == View.VISIBLE
                                 showControls = visibility == View.VISIBLE
                             }
                         )
                         val gestureDetector = GestureDetector(
                             ctx,
                             object : GestureDetector.SimpleOnGestureListener() {
+                                private var isDoubleTap = false
+
+                                override fun onDown(e: MotionEvent): Boolean {
+                                    return true // consume all touches to prevent PlayerView from toggling controls
+                                }
+
+                                override fun onSingleTapUp(e: MotionEvent): Boolean {
+                                    if (isDoubleTap) return true
+                                    // Delay controls toggle briefly to see if this is the start of a double-tap
+                                    removeCallbacks(showControlsRunnable)
+                                    postDelayed(showControlsRunnable, 150L)
+                                    return true
+                                }
+
                                 override fun onDoubleTap(e: MotionEvent): Boolean {
+                                    isDoubleTap = true
+                                    // Cancel pending controls toggle — this is a double-tap, not a single tap
+                                    removeCallbacks(showControlsRunnable)
                                     val seekAmount =
                                         if (e.x < width / 2f) -5000L else 5000L
                                     val newPos = (exoPlayer.currentPosition + seekAmount)
                                         .coerceIn(0L, exoPlayer.duration.coerceAtLeast(0))
                                     exoPlayer.seekTo(newPos)
                                     skipEvent = SkipEvent(seekAmount)
-                                    // Hide controls in case the first tap triggered them
-                                    post { hideController() }
                                     return true
+                                }
+
+                                override fun onDoubleTapEvent(e: MotionEvent): Boolean {
+                                    if (e.actionMasked == MotionEvent.ACTION_UP) {
+                                        isDoubleTap = false
+                                    }
+                                    return true // consume all double-tap events
                                 }
                             }
                         )
