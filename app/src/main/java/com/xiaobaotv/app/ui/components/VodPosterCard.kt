@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import com.xiaobaotv.app.domain.model.VodContent
 
 @Composable
@@ -35,19 +35,13 @@ fun VodPosterCard(
                 .width(120.dp)
                 .height(160.dp)
                 .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            SubcomposeAsyncImage(
+            AsyncImage(
                 model = vod.pic,
                 contentDescription = vod.name,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                loading = {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                    )
-                }
+                modifier = Modifier.fillMaxSize()
             )
 
             // Score badge

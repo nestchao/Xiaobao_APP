@@ -7,13 +7,11 @@ import com.xiaobaotv.app.data.cache.PlaybackUrlCache
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.model.VodContent
 import com.xiaobaotv.app.domain.model.WatchHistoryItem
-import com.xiaobaotv.app.domain.usecase.GetPlaybackUrlUseCase
-import com.xiaobaotv.app.domain.usecase.GetVideoSourcesUseCase
-import com.xiaobaotv.app.domain.usecase.GetVodDetailUseCase
-import com.xiaobaotv.app.domain.usecase.GetWatchHistoryItemUseCase
+import com.xiaobaotv.app.domain.repository.ContentRepository
+import com.xiaobaotv.app.domain.repository.VideoRepository
+import com.xiaobaotv.app.domain.repository.WatchHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,10 +31,9 @@ data class DetailUiState(
 
 @HiltViewModel
 class DetailViewModel @Inject constructor(
-    private val getVodDetailUseCase: GetVodDetailUseCase,
-    private val getVideoSourcesUseCase: GetVideoSourcesUseCase,
-    private val getPlaybackUrlUseCase: GetPlaybackUrlUseCase,
-    private val getWatchHistoryItemUseCase: GetWatchHistoryItemUseCase,
+    private val contentRepository: ContentRepository,
+    private val videoRepository: VideoRepository,
+    private val watchHistoryRepository: WatchHistoryRepository,
     private val playbackUrlCache: PlaybackUrlCache,
     private val detailPageCache: DetailPageCache
 ) : ViewModel() {
@@ -48,9 +45,9 @@ class DetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null, sourcesError = null) }
 
-            val detailDeferred = async { getVodDetailUseCase(vodId) }
-            val sourcesDeferred = async { getVideoSourcesUseCase(vodId) }
-            val historyDeferred = async { getWatchHistoryItemUseCase(vodId) }
+            val detailDeferred = async { contentRepository.getVodDetail(vodId) }
+            val sourcesDeferred = async { videoRepository.getVideoSources(vodId) }
+            val historyDeferred = async { watchHistoryRepository.getWatchHistoryItem(vodId) }
 
             detailDeferred.await().onSuccess { vod ->
                 _uiState.update { it.copy(vod = vod) }
@@ -65,8 +62,7 @@ class DetailViewModel @Inject constructor(
                 applySources(vodId, sources)
             }.onFailure { e ->
                 detailPageCache.remove(vodId)
-                delay(1500L)
-                getVideoSourcesUseCase(vodId).onSuccess { sources ->
+                videoRepository.getVideoSources(vodId).onSuccess { sources ->
                     applySources(vodId, sources)
                 }.onFailure { retryError ->
                     _uiState.update {
@@ -85,7 +81,7 @@ class DetailViewModel @Inject constructor(
         val firstEpisode = sources.firstOrNull()?.episodes?.firstOrNull()
         if (firstEpisode != null) {
             viewModelScope.launch {
-                getPlaybackUrlUseCase(firstEpisode.url).onSuccess { url ->
+                videoRepository.getPlaybackUrl(firstEpisode.url).onSuccess { url ->
                     playbackUrlCache.put(vodId, 0, url)
                 }
             }

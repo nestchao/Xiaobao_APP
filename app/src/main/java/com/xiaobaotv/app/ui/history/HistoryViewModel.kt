@@ -3,9 +3,7 @@ package com.xiaobaotv.app.ui.history
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaobaotv.app.domain.model.WatchHistoryItem
-import com.xiaobaotv.app.domain.usecase.ClearWatchHistoryUseCase
-import com.xiaobaotv.app.domain.usecase.DeleteWatchHistoryUseCase
-import com.xiaobaotv.app.domain.usecase.GetWatchHistoryUseCase
+import com.xiaobaotv.app.domain.repository.WatchHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,9 +23,7 @@ data class HistoryUiState(
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val getWatchHistoryUseCase: GetWatchHistoryUseCase,
-    private val deleteWatchHistoryUseCase: DeleteWatchHistoryUseCase,
-    private val clearWatchHistoryUseCase: ClearWatchHistoryUseCase
+    private val watchHistoryRepository: WatchHistoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HistoryUiState())
@@ -39,7 +35,7 @@ class HistoryViewModel @Inject constructor(
 
     private fun loadHistory() {
         _uiState.update { it.copy(isLoading = true) }
-        getWatchHistoryUseCase()
+        watchHistoryRepository.getWatchHistory()
             .onEach { list ->
                 _uiState.update { it.copy(isLoading = false, items = list) }
             }
@@ -51,13 +47,13 @@ class HistoryViewModel @Inject constructor(
 
     fun deleteItem(vodId: Int) {
         viewModelScope.launch {
-            deleteWatchHistoryUseCase(vodId)
+            watchHistoryRepository.deleteWatchHistory(vodId)
         }
     }
 
     fun clearAll() {
         viewModelScope.launch {
-            clearWatchHistoryUseCase()
+            watchHistoryRepository.clearAll()
         }
     }
 }

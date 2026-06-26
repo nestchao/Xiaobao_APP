@@ -119,6 +119,9 @@ dependencies {
     // Timber
     implementation(libs.timber)
 
+    // Profile Installer (delivers baseline profiles on API < 34)
+    implementation(libs.profileinstaller)
+
     // Coroutines
     implementation(libs.coroutines.android)
 

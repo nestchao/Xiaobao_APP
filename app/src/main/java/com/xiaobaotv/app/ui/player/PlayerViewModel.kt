@@ -8,16 +8,12 @@ import com.xiaobaotv.app.domain.model.Episode
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.model.VodContent
 import com.xiaobaotv.app.domain.model.WatchHistoryItem
-import com.xiaobaotv.app.domain.usecase.GetPlaybackUrlUseCase
-import com.xiaobaotv.app.domain.usecase.GetVideoSourcesUseCase
-import com.xiaobaotv.app.domain.usecase.GetVodDetailUseCase
-import com.xiaobaotv.app.domain.usecase.GetWatchHistoryItemUseCase
-import com.xiaobaotv.app.domain.usecase.SaveWatchHistoryUseCase
+import com.xiaobaotv.app.domain.repository.ContentRepository
+import com.xiaobaotv.app.domain.repository.VideoRepository
+import com.xiaobaotv.app.domain.repository.WatchHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,11 +35,9 @@ data class PlayerUiState(
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    private val getVideoSourcesUseCase: GetVideoSourcesUseCase,
-    private val getPlaybackUrlUseCase: GetPlaybackUrlUseCase,
-    private val getVodDetailUseCase: GetVodDetailUseCase,
-    private val getWatchHistoryItemUseCase: GetWatchHistoryItemUseCase,
-    private val saveWatchHistoryUseCase: SaveWatchHistoryUseCase,
+    private val videoRepository: VideoRepository,
+    private val contentRepository: ContentRepository,
+    private val watchHistoryRepository: WatchHistoryRepository,
     private val playbackUrlCache: PlaybackUrlCache,
     val exoPlayerCache: Cache
 ) : ViewModel() {
@@ -57,9 +51,6 @@ class PlayerViewModel @Inject constructor(
     private var vodContent: VodContent? = null
     private var saveJob: Job? = null
 
-    // Dedicated scope for final save — viewModelScope is cancelled before onCleared()
-    private val saveScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     fun loadVideoInfo(vodId: Int, episodeIndex: Int = 0) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, vodId = vodId) }
@@ -70,16 +61,16 @@ class PlayerViewModel @Inject constructor(
             }
 
             // Load vod detail for name/pic
-            getVodDetailUseCase(vodId).onSuccess { content ->
+            contentRepository.getVodDetail(vodId).onSuccess { content ->
                 vodContent = content
             }
 
             // Check history for saved position and source index
-            val history = getWatchHistoryItemUseCase(vodId)
+            val history = watchHistoryRepository.getWatchHistoryItem(vodId)
             val finalSourceIndex = history?.sourceIndex ?: 0
             val finalEpisodeIndex = episodeIndex
 
-            getVideoSourcesUseCase(vodId).onSuccess { sources ->
+            videoRepository.getVideoSources(vodId).onSuccess { sources ->
                 _uiState.update {
                     it.copy(
                         sources = sources,
@@ -126,7 +117,7 @@ class PlayerViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            getPlaybackUrlUseCase(episode.url).onSuccess { url ->
+            videoRepository.getPlaybackUrl(episode.url).onSuccess { url ->
                 _uiState.update { it.copy(isLoading = false, playbackUrl = url) }
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -146,13 +137,15 @@ class PlayerViewModel @Inject constructor(
         saveJob = viewModelScope.launch {
             while (true) {
                 delay(10000L)
-                saveProgressInternal()
+                if (_currentPositionMs.value > 0) {
+                    saveProgressInternal()
+                }
             }
         }
     }
 
     fun saveOnPause() {
-        saveScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             saveProgressInternal()
         }
     }
@@ -179,14 +172,14 @@ class PlayerViewModel @Inject constructor(
             durationMs = duration,
             lastWatchedAt = System.currentTimeMillis()
         )
-        saveWatchHistoryUseCase(historyItem)
+        watchHistoryRepository.saveWatchHistory(historyItem)
     }
 
     override fun onCleared() {
         super.onCleared()
         saveJob?.cancel()
-        // Save one final time — saveScope outlives viewModelScope
-        saveScope.launch {
+        // Save one final time — use runBlocking since viewModelScope is already cancelled
+        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
             saveProgressInternal()
         }
     }

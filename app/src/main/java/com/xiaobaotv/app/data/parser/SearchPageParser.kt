@@ -10,6 +10,7 @@ import java.net.URLEncoder
 object SearchPageParser {
 
     private const val BASE_URL = "https://www.xiaobaotv.tv"
+    private val DETAIL_ID_REGEX = Regex("""/movie/detail/(\d+)\.html""")
 
     fun parse(html: String, query: String): List<VodContent> {
         return try {
@@ -17,7 +18,7 @@ object SearchPageParser {
             doc.select("ul#searchList li.clearfix").mapNotNull { item ->
                 val link = item.selectFirst("a.myui-vodlist__thumb") ?: return@mapNotNull null
                 val href = link.attr("href")
-                val id = Regex("""/movie/detail/(\d+)\.html""").find(href)
+                val id = DETAIL_ID_REGEX.find(href)
                     ?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
                 val name = link.attr("title").trim()
                 val pic = link.attr("data-original").trim()

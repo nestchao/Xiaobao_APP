@@ -8,6 +8,7 @@ import timber.log.Timber
 object ShowPageParser {
 
     private const val BASE_URL = "https://www.xiaobaotv.tv"
+    private val DETAIL_ID_REGEX = Regex("""/movie/detail/(\d+)\.html""")
 
     fun parse(html: String, typeId: Int): List<VodContent> {
         return try {
@@ -15,7 +16,7 @@ object ShowPageParser {
             doc.select("div.myui-vodlist__box").mapNotNull { item ->
                 val link = item.selectFirst("a.myui-vodlist__thumb") ?: return@mapNotNull null
                 val href = link.attr("href")
-                val id = Regex("""/movie/detail/(\d+)\.html""").find(href)
+                val id = DETAIL_ID_REGEX.find(href)
                     ?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
                 val name = link.attr("title").trim()
                 val pic = link.attr("data-original").trim()

@@ -3,6 +3,7 @@ package com.xiaobaotv.app.ui.detail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
@@ -21,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,18 +81,11 @@ fun DetailScreen(
                     // Backdrop
                     item {
                         Box(modifier = Modifier.height(300.dp).fillMaxWidth()) {
-                            SubcomposeAsyncImage(
+                            AsyncImage(
                                 model = vod.pic,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                                loading = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                                    )
-                                }
+                                modifier = Modifier.fillMaxSize()
                             )
                             Box(
                                 modifier = Modifier
@@ -182,30 +176,30 @@ fun DetailScreen(
                         }
 
                         val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
-                        item {
-                            Column(modifier = Modifier.padding(horizontal = 8.dp)) {
-                                val rows = episodes.chunked(4)
-                                rows.forEach { row ->
-                                    Row(modifier = Modifier.fillMaxWidth()) {
-                                        row.forEach { episode ->
-                                            OutlinedButton(
-                                                onClick = { onPlayClick(vod.id, episode.index) },
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .padding(4.dp),
-                                                contentPadding = PaddingValues(0.dp)
-                                            ) {
-                                                Text(
-                                                    text = episode.name,
-                                                    maxLines = 1,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
-                                        repeat(4 - row.size) {
-                                            Spacer(modifier = Modifier.weight(1f).padding(4.dp))
-                                        }
+                        val episodeRows = episodes.chunked(4)
+                        items(episodeRows, key = { row -> row.firstOrNull()?.index ?: 0 }) { row ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp)
+                            ) {
+                                row.forEach { episode ->
+                                    OutlinedButton(
+                                        onClick = { onPlayClick(vod.id, episode.index) },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .padding(4.dp),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text(
+                                            text = episode.name,
+                                            maxLines = 1,
+                                            fontSize = 12.sp
+                                        )
                                     }
+                                }
+                                repeat(4 - row.size) {
+                                    Spacer(modifier = Modifier.weight(1f).padding(4.dp))
                                 }
                             }
                         }

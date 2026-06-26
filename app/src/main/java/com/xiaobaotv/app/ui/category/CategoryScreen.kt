@@ -57,7 +57,7 @@ fun CategoryScreen(
                 contentPadding = PaddingValues(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(count = pagingItems.itemCount, key = { index -> index }) { index ->
+                items(count = pagingItems.itemCount, key = { index -> pagingItems[index]?.id ?: index }) { index ->
                     val vod = pagingItems[index]
                     if (vod != null) {
                         VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })

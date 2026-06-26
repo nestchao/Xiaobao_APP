@@ -7,7 +7,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.xiaobaotv.app.domain.model.VodContent
-import com.xiaobaotv.app.domain.usecase.GetVodListUseCase
+import com.xiaobaotv.app.domain.repository.ContentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import javax.inject.Inject
@@ -20,7 +20,7 @@ data class CategoryUiState(
 
 @HiltViewModel
 class CategoryViewModel @Inject constructor(
-    private val getVodListUseCase: GetVodListUseCase
+    private val contentRepository: ContentRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CategoryUiState())
@@ -30,7 +30,7 @@ class CategoryViewModel @Inject constructor(
     val pagingDataFlow: Flow<PagingData<VodContent>> = _typeIdFlow
         .flatMapLatest { typeId ->
             Pager(PagingConfig(pageSize = 20, prefetchDistance = 4)) {
-                CategoryPagingSource(getVodListUseCase, typeId)
+                CategoryPagingSource(contentRepository, typeId)
             }.flow
         }
         .cachedIn(viewModelScope)

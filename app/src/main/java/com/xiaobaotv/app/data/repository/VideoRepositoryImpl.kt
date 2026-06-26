@@ -4,7 +4,7 @@ import com.xiaobaotv.app.data.cache.DetailPageCache
 import com.xiaobaotv.app.data.parser.PlayPageParser
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.repository.VideoRepository
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -12,12 +12,14 @@ import okhttp3.Request
 import timber.log.Timber
 import java.util.LinkedHashMap
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
 class VideoRepositoryImpl @Inject constructor(
     private val client: OkHttpClient,
-    private val detailCache: DetailPageCache
+    private val detailCache: DetailPageCache,
+    @Named("httpDispatcher") private val httpDispatcher: CoroutineDispatcher
 ) : VideoRepository {
 
     private val baseUrl = "https://www.xiaobaotv.tv"
@@ -43,7 +45,7 @@ class VideoRepositoryImpl @Inject constructor(
                 fetchWithRetry("$baseUrl/movie/detail/$vodId.html")
                     ?: throw Exception("Failed to fetch detail page")
             }
-            val sources = withContext(Dispatchers.IO) {
+            val sources = withContext(httpDispatcher) {
                 PlayPageParser.parseVideoSources(html)
             }
             if (sources.isEmpty()) {
@@ -57,7 +59,7 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getPlaybackUrl(playPageUrl: String): Result<String> = withContext(Dispatchers.IO) {
+    override suspend fun getPlaybackUrl(playPageUrl: String): Result<String> = withContext(httpDispatcher) {
         try {
             val fullUrl = if (playPageUrl.startsWith("http")) playPageUrl else "$baseUrl$playPageUrl"
             val html = fetchWithRetry(fullUrl)
@@ -78,15 +80,20 @@ class VideoRepositoryImpl @Inject constructor(
         val maxAttempts = 2
         while (attempt < maxAttempts) {
             try {
-                val request = Request.Builder().url(url).build()
-                val response = withContext(Dispatchers.IO) { client.newCall(request).execute() }
-                if (!response.isSuccessful) {
-                    Timber.w("HTTP ${response.code} fetching $url (attempt ${attempt + 1})")
-                    attempt++
-                    if (attempt < maxAttempts) delay(1000L * attempt)
-                    continue
+                val result = withContext(httpDispatcher) {
+                    val request = Request.Builder().url(url).build()
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            Timber.w("HTTP ${response.code} fetching $url (attempt ${attempt + 1})")
+                            null
+                        } else {
+                            response.body?.string()
+                        }
+                    }
                 }
-                return response.body?.string()
+                if (result != null) return result
+                attempt++
+                if (attempt < maxAttempts) delay(1000L * attempt)
             } catch (e: Exception) {
                 Timber.w(e, "Network error fetching $url (attempt ${attempt + 1})")
                 attempt++

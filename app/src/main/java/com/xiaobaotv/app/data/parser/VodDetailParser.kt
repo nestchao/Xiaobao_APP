@@ -7,6 +7,9 @@ import timber.log.Timber
 
 object VodDetailParser {
 
+    private val TYPE_ID_REGEX = Regex("\\d+")
+    private val DESCRIPTION_REGEX = Regex("\"description\"\\s*:\\s*\"([^\"]+)\"")
+
     fun parse(html: String, vodId: Int): VodContent? {
         return parseFromDocument(Jsoup.parse(html), vodId)
     }
@@ -54,7 +57,7 @@ object VodDetailParser {
     private fun extractGenre(doc: Document): Pair<Int, String?> {
         val el = doc.selectFirst("p.data a[href^=/movie/show/]")
         val href = el?.attr("href") ?: return Pair(0, null)
-        val typeId = Regex("\\d+").find(href)?.value?.toIntOrNull() ?: 0
+        val typeId = TYPE_ID_REGEX.find(href)?.value?.toIntOrNull() ?: 0
         val typeName = el.text().trim()
         return Pair(typeId, typeName)
     }
@@ -95,7 +98,7 @@ object VodDetailParser {
         val scripts = doc.select("script[type=application/ld+json]")
         for (script in scripts) {
             val json = script.html()
-            val regex = Regex("\"description\"\\s*:\\s*\"([^\"]+)\"")
+            val regex = DESCRIPTION_REGEX
             val desc = regex.find(json)?.groupValues?.get(1)
             if (desc != null) return desc.replace("\\/", "/")
         }

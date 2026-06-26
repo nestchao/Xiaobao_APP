@@ -1,0 +1,121 @@
+# XiaobaoTV Baseline Profile
+# This profile enables AOT compilation of critical paths on first install.
+# Generated for app version 1.0.0
+
+# ── Startup – Application & DI ──
+com.xiaobaotv.app.XiaobaoApp
+com.xiaobaotv.app.di.*
+com.xiaobaotv.app.data.di.*
+
+# ── Navigation ──
+com.xiaobaotv.app.ui.navigation.XiaobaoNavHost
+com.xiaobaotv.app.ui.navigation.BottomNavItem
+com.xiaobaotv.app.ui.navigation.Routes
+com.xiaobaotv.app.ui.navigation.*
+
+# ── Home Screen (first screen) ──
+com.xiaobaotv.app.ui.home.HomeScreenKt
+com.xiaobaotv.app.ui.home.HomeViewModel
+com.xiaobaotv.app.ui.components.VodPosterCard
+com.xiaobaotv.app.ui.components.*
+
+# ── Detail Screen ──
+com.xiaobaotv.app.ui.detail.DetailScreenKt
+com.xiaobaotv.app.ui.detail.DetailViewModel
+
+# ── Player Screen ──
+com.xiaobaotv.app.ui.player.PlayerScreenKt
+com.xiaobaotv.app.ui.player.PlayerViewModel
+
+# ── Category Screen ──
+com.xiaobaotv.app.ui.category.CategoryScreenKt
+com.xiaobaotv.app.ui.category.CategoryViewModel
+com.xiaobaotv.app.ui.category.CategoryPagingSource
+
+# ── Search Screen ──
+com.xiaobaotv.app.ui.search.SearchScreenKt
+com.xiaobaotv.app.ui.search.SearchViewModel
+
+# ── Profile / History ──
+com.xiaobaotv.app.ui.profile.*
+com.xiaobaotv.app.ui.history.*
+
+# ── Theme ──
+com.xiaobaotv.app.ui.theme.*
+
+# ── Data Layer ──
+com.xiaobaotv.app.data.repository.*
+com.xiaobaotv.app.data.repository.*$*
+com.xiaobaotv.app.data.parser.*
+com.xiaobaotv.app.data.parser.*$*
+com.xiaobaotv.app.data.remote.*
+com.xiaobaotv.app.data.local.*
+com.xiaobaotv.app.data.local.*$*
+com.xiaobaotv.app.data.cache.*
+com.xiaobaotv.app.data.model.*
+
+# ── Domain Models ──
+com.xiaobaotv.app.domain.model.*
+
+# ── Compose Framework ──
+androidx.compose.material3.*
+androidx.compose.material3.*$*
+androidx.compose.foundation.*
+androidx.compose.foundation.lazy.*
+androidx.compose.foundation.lazy.*$*
+androidx.compose.ui.*
+androidx.compose.ui.platform.*
+androidx.compose.runtime.*
+androidx.compose.animation.*
+androidx.compose.animation.core.*
+
+# ── Coil Image Loading ──
+coil.*
+coil.*$*
+
+# ── Room ──
+androidx.room.*
+
+# ── OkHttp ──
+okhttp3.*
+okhttp3.internal.*
+
+# ── ExoPlayer / Media3 ──
+androidx.media3.*
+androidx.media3.exoplayer.*
+androidx.media3.exoplayer.hls.*
+
+# ── Coroutines ──
+kotlinx.coroutines.*
+kotlinx.coroutines.android.*
+kotlinx.coroutines.flow.*
+
+# ── Navigation Compose ──
+androidx.navigation.*
+androidx.navigation.compose.*
+
+# ── Lifecycle ──
+androidx.lifecycle.*
+
+# ── Paging 3 ──
+androidx.paging.*
+
+# ── Jsoup HTML Parser ──
+org.jsoup.*
+
+# ── Hilt DI ──
+dagger.hilt.*
+dagger.hilt.android.*
+dagger.hilt.internal.*
+
+# ── Splash Screen (API 31+) ──
+androidx.core.splashscreen.*
+
+# ── Retrofit ──
+retrofit2.*
+
+# ── Moshi ──
+com.squareup.moshi.*
+
+# ── Timber Logging ──
+timber.log.*

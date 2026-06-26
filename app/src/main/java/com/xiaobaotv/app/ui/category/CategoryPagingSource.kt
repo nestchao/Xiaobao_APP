@@ -3,10 +3,10 @@ package com.xiaobaotv.app.ui.category
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.xiaobaotv.app.domain.model.VodContent
-import com.xiaobaotv.app.domain.usecase.GetVodListUseCase
+import com.xiaobaotv.app.domain.repository.ContentRepository
 
 class CategoryPagingSource(
-    private val getVodListUseCase: GetVodListUseCase,
+    private val contentRepository: ContentRepository,
     private val typeId: Int
 ) : PagingSource<Int, VodContent>() {
 
@@ -20,7 +20,7 @@ class CategoryPagingSource(
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, VodContent> {
         val page = params.key ?: 1
         return try {
-            val result = getVodListUseCase(typeId = typeId, page = page)
+            val result = contentRepository.getVodList(typeId = typeId, page = page)
             result.fold(
                 onSuccess = { items ->
                     LoadResult.Page(

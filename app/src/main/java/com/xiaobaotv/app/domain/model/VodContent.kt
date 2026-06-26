@@ -1,5 +1,8 @@
 package com.xiaobaotv.app.domain.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class VodContent(
     val id: Int,
     val name: String,

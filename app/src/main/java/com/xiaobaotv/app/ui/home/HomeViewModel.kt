@@ -1,17 +1,12 @@
 package com.xiaobaotv.app.ui.home
 
-import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import coil.Coil
-import coil.request.CachePolicy
-import coil.request.ImageRequest
 import com.xiaobaotv.app.domain.model.VodContent
 import com.xiaobaotv.app.domain.model.WatchHistoryItem
-import com.xiaobaotv.app.domain.usecase.GetVodListUseCase
-import com.xiaobaotv.app.domain.usecase.GetWatchHistoryUseCase
+import com.xiaobaotv.app.domain.repository.ContentRepository
+import com.xiaobaotv.app.domain.repository.WatchHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,22 +21,29 @@ import javax.inject.Inject
 data class HomeUiState(
     val isLoading: Boolean = false,
     val heroItems: List<VodContent> = emptyList(),
-    val hotMovies: List<VodContent> = emptyList(),
-    val hotTvSeries: List<VodContent> = emptyList(),
-    val hotAnime: List<VodContent> = emptyList(),
-    val continueWatchingList: List<WatchHistoryItem> = emptyList(),
     val error: String? = null
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val getVodListUseCase: GetVodListUseCase,
-    private val getWatchHistoryUseCase: GetWatchHistoryUseCase,
-    @ApplicationContext private val context: android.content.Context
+    private val contentRepository: ContentRepository,
+    private val watchHistoryRepository: WatchHistoryRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private val _hotMovies = MutableStateFlow<List<VodContent>>(emptyList())
+    val hotMovies: StateFlow<List<VodContent>> = _hotMovies.asStateFlow()
+
+    private val _hotTvSeries = MutableStateFlow<List<VodContent>>(emptyList())
+    val hotTvSeries: StateFlow<List<VodContent>> = _hotTvSeries.asStateFlow()
+
+    private val _hotAnime = MutableStateFlow<List<VodContent>>(emptyList())
+    val hotAnime: StateFlow<List<VodContent>> = _hotAnime.asStateFlow()
+
+    private val _continueWatchingList = MutableStateFlow<List<WatchHistoryItem>>(emptyList())
+    val continueWatchingList: StateFlow<List<WatchHistoryItem>> = _continueWatchingList.asStateFlow()
 
     init {
         loadHomeContent()
@@ -49,9 +51,9 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun observeWatchHistory() {
-        getWatchHistoryUseCase()
+        watchHistoryRepository.getWatchHistory()
             .onEach { historyList ->
-                _uiState.update { it.copy(continueWatchingList = historyList.take(10)) }
+                _continueWatchingList.value = historyList.take(10)
             }
             .launchIn(viewModelScope)
     }
@@ -61,9 +63,9 @@ class HomeViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             try {
-                val moviesDeferred = async { getVodListUseCase(typeId = 1, limit = 10) }
-                val tvDeferred = async { getVodListUseCase(typeId = 2, limit = 10) }
-                val animeDeferred = async { getVodListUseCase(typeId = 4, limit = 10) }
+                val moviesDeferred = async { contentRepository.getVodList(typeId = 1, limit = 10) }
+                val tvDeferred = async { contentRepository.getVodList(typeId = 2, limit = 10) }
+                val animeDeferred = async { contentRepository.getVodList(typeId = 4, limit = 10) }
 
                 val results = awaitAll(moviesDeferred, tvDeferred, animeDeferred)
                 val moviesResult = results[0]
@@ -74,37 +76,17 @@ class HomeViewModel @Inject constructor(
                 val tvSeries = tvResult.getOrDefault(emptyList())
                 val anime = animeResult.getOrDefault(emptyList())
 
-                _uiState.update { state ->
-                    state.copy(
-                        isLoading = false,
-                        heroItems = movies.take(5),
-                        hotMovies = movies,
-                        hotTvSeries = tvSeries,
-                        hotAnime = anime
-                    )
-                }
-
-                preloadImages(movies)
+                _uiState.update { it.copy(isLoading = false, heroItems = movies.take(5)) }
+                _hotMovies.value = movies
+                _hotTvSeries.value = tvSeries
+                _hotAnime.value = anime
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
 
-    fun preloadImages(items: List<VodContent>) {
-        if (items.isEmpty()) return
-        viewModelScope.launch {
-            val imageLoader = Coil.imageLoader(context)
-            items.forEach { vod ->
-                imageLoader.enqueue(
-                    ImageRequest.Builder(context)
-                        .data(vod.pic)
-                        .size(360)
-                        .memoryCachePolicy(CachePolicy.ENABLED)
-                        .diskCachePolicy(CachePolicy.ENABLED)
-                        .build()
-                )
-            }
-        }
+    companion object {
+        private const val TAG = "HomeViewModel"
     }
 }

@@ -2,14 +2,13 @@ package com.xiaobaotv.app.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -21,7 +20,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil.compose.SubcomposeAsyncImage
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.xiaobaotv.app.domain.model.WatchHistoryItem
 import com.xiaobaotv.app.ui.components.SectionHeader
 import com.xiaobaotv.app.ui.components.VodPosterCard
@@ -32,6 +32,10 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val hotMovies by viewModel.hotMovies.collectAsStateWithLifecycle()
+    val hotTvSeries by viewModel.hotTvSeries.collectAsStateWithLifecycle()
+    val hotAnime by viewModel.hotAnime.collectAsStateWithLifecycle()
+    val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
     val currentOnVodClick by rememberUpdatedState(onVodClick)
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -56,15 +60,14 @@ fun HomeScreen(
             }
 
             // Continue Watching Row
-            if (uiState.continueWatchingList.isNotEmpty()) {
+            if (continueWatchingList.isNotEmpty()) {
+                item { SectionHeader(title = "继续观看", onMoreClick = {}) }
                 item {
-                    SectionHeader(title = "继续观看", onMoreClick = {})
-                    Row(
-                        modifier = Modifier
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 12.dp)
+                    LazyRow(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        uiState.continueWatchingList.forEach { history ->
+                        items(continueWatchingList, key = { it.vodId }) { history ->
                             HistoryPosterCard(
                                 history = history,
                                 onClick = { currentOnVodClick(history.vodId) }
@@ -75,42 +78,39 @@ fun HomeScreen(
             }
 
             // Movie Row
+            item { SectionHeader(title = "最新电影", onMoreClick = {}) }
             item {
-                SectionHeader(title = "最新电影", onMoreClick = {})
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp)
+                LazyRow(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    uiState.hotMovies.forEach { vod ->
+                    items(hotMovies, key = { it.id }) { vod ->
                         VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
                     }
                 }
             }
 
             // TV Row
+            item { SectionHeader(title = "热门剧集", onMoreClick = {}) }
             item {
-                SectionHeader(title = "热门剧集", onMoreClick = {})
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp)
+                LazyRow(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    uiState.hotTvSeries.forEach { vod ->
+                    items(hotTvSeries, key = { it.id }) { vod ->
                         VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
                     }
                 }
             }
 
             // Anime Row
+            item { SectionHeader(title = "热门动漫", onMoreClick = {}) }
             item {
-                SectionHeader(title = "热门动漫", onMoreClick = {})
-                Row(
-                    modifier = Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp)
+                LazyRow(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
-                    uiState.hotAnime.forEach { vod ->
+                    items(hotAnime, key = { it.id }) { vod ->
                         VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
                     }
                 }
@@ -136,19 +136,13 @@ fun HistoryPosterCard(
                 .width(120.dp)
                 .height(160.dp)
                 .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            SubcomposeAsyncImage(
+            AsyncImage(
                 model = history.pic,
                 contentDescription = history.name,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-                loading = {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                    )
-                }
+                modifier = Modifier.fillMaxSize()
             )
 
             // Episode badge

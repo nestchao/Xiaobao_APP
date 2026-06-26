@@ -11,7 +11,7 @@ import com.xiaobaotv.app.data.parser.VodDetailParser
 import com.xiaobaotv.app.data.remote.XiaobaoApi
 import com.xiaobaotv.app.domain.model.VodContent
 import com.xiaobaotv.app.domain.repository.ContentRepository
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -20,6 +20,7 @@ import org.jsoup.Jsoup
 import timber.log.Timber
 import java.util.LinkedHashMap
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
@@ -27,7 +28,8 @@ class ContentRepositoryImpl @Inject constructor(
     private val api: XiaobaoApi,
     private val client: OkHttpClient,
     private val detailCache: DetailPageCache,
-    private val vodContentDao: VodContentDao
+    private val vodContentDao: VodContentDao,
+    @Named("httpDispatcher") private val httpDispatcher: CoroutineDispatcher
 ) : ContentRepository {
 
     private val baseUrl = "https://www.xiaobaotv.tv"
@@ -131,53 +133,53 @@ class ContentRepositoryImpl @Inject constructor(
         return null
     }
 
-    private suspend fun fetchDetailPage(id: Int): VodContent? = withContext(Dispatchers.IO) {
+    private suspend fun fetchDetailPage(id: Int): VodContent? = withContext(httpDispatcher) {
         try {
             val url = "$baseUrl/movie/detail/$id.html"
             val request = Request.Builder().url(url).build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
+                // Detect rate limiting / server errors
+                if (!response.isSuccessful) {
+                    Timber.e("HTTP ${response.code} for detail/$id.html")
+                    return@withContext null
+                }
 
-            // Detect rate limiting / server errors
-            if (!response.isSuccessful) {
-                Timber.e("HTTP ${response.code} for detail/$id.html")
-                return@withContext null
+                // Parse directly from response body stream to avoid allocating the full HTML string.
+                // Jsoup.parse(InputStream, charset, baseUri) reduces peak memory by ~50%.
+                val body = response.body ?: return@withContext null
+                val doc = Jsoup.parse(body.byteStream(), "UTF-8", url)
+                val html = doc.html()
+                detailCache.put(id, html) // share with VideoRepositoryImpl
+                VodDetailParser.parseFromDocument(doc, id)
             }
-
-            // Parse directly from response body stream to avoid allocating the full HTML string.
-            // Jsoup.parse(InputStream, charset, baseUri) reduces peak memory by ~50%.
-            val body = response.body ?: return@withContext null
-            val doc = Jsoup.parse(body.byteStream(), "UTF-8", url)
-            val html = doc.html()
-            detailCache.put(id, html) // share with VideoRepositoryImpl
-            VodDetailParser.parseFromDocument(doc, id)
         } catch (e: Exception) {
             Timber.e(e, "Exception fetching detail/$id.html")
             null
         }
     }
 
-    private suspend fun fetchSearchResults(query: String, page: Int): List<VodContent> = withContext(Dispatchers.IO) {
+    private suspend fun fetchSearchResults(query: String, page: Int): List<VodContent> = withContext(httpDispatcher) {
         try {
             val url = SearchPageParser.buildSearchUrl(query, page)
             val request = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
                 .build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Timber.e("HTTP ${response.code} for search page, query=$query, url=$url")
+                    return@withContext emptyList()
+                }
 
-            if (!response.isSuccessful) {
-                Timber.e("HTTP ${response.code} for search page, query=$query, url=$url")
-                return@withContext emptyList()
+                val html = response.body?.string() ?: return@withContext emptyList()
+                val results = SearchPageParser.parse(html, query)
+
+                // Log HTML snippet when parser returns nothing, to distinguish "no results" from parser failure
+                if (results.isEmpty()) {
+                    Timber.w("Search returned empty for query=$query. HTML snippet: ${html.take(500)}")
+                }
+
+                results
             }
-
-            val html = response.body?.string() ?: return@withContext emptyList()
-            val results = SearchPageParser.parse(html, query)
-
-            // Log HTML snippet when parser returns nothing, to distinguish "no results" from parser failure
-            if (results.isEmpty()) {
-                Timber.w("Search returned empty for query=$query. HTML snippet: ${html.take(500)}")
-            }
-
-            results
         } catch (e: Exception) {
             Timber.e(e, "Exception fetching search page, query=$query")
             emptyList()
@@ -202,21 +204,21 @@ class ContentRepositoryImpl @Inject constructor(
         return emptyList()
     }
 
-    private suspend fun fetchShowPage(typeId: Int, page: Int): List<VodContent> = withContext(Dispatchers.IO) {
+    private suspend fun fetchShowPage(typeId: Int, page: Int): List<VodContent> = withContext(httpDispatcher) {
         try {
             val url = ShowPageParser.buildShowPageUrl(typeId, page)
             val request = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
                 .build()
-            val response = client.newCall(request).execute()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    Timber.e("HTTP ${response.code} for show/$typeId-$page.html")
+                    return@withContext emptyList()
+                }
 
-            if (!response.isSuccessful) {
-                Timber.e("HTTP ${response.code} for show/$typeId-$page.html")
-                return@withContext emptyList()
+                val html = response.body?.string() ?: return@withContext emptyList()
+                ShowPageParser.parse(html, typeId)
             }
-
-            val html = response.body?.string() ?: return@withContext emptyList()
-            ShowPageParser.parse(html, typeId)
         } catch (e: Exception) {
             Timber.e(e, "Exception fetching show page typeId=$typeId page=$page")
             emptyList()

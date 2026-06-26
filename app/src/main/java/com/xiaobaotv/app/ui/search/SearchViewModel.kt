@@ -3,7 +3,7 @@ package com.xiaobaotv.app.ui.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaobaotv.app.domain.model.VodContent
-import com.xiaobaotv.app.domain.usecase.GetVodListUseCase
+import com.xiaobaotv.app.domain.repository.ContentRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -19,7 +19,7 @@ data class SearchUiState(
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
-    private val getVodListUseCase: GetVodListUseCase
+    private val contentRepository: ContentRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -54,7 +54,7 @@ class SearchViewModel @Inject constructor(
 
     private suspend fun performSearch(q: String) {
         _uiState.update { it.copy(isLoading = true, error = null) }
-        getVodListUseCase(query = q).onSuccess { list ->
+        contentRepository.getVodList(query = q).onSuccess { list ->
             _uiState.update { it.copy(isLoading = false, results = list) }
         }.onFailure { e ->
             _uiState.update { it.copy(isLoading = false, error = e.message) }

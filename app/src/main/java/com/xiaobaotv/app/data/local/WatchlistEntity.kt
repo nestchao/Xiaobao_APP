@@ -1,9 +1,13 @@
 package com.xiaobaotv.app.data.local
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "watchlist")
+@Entity(
+    tableName = "watchlist",
+    indices = [Index(value = ["addedAt"], orders = [Index.Order.DESC])]
+)
 data class WatchlistEntity(
     @PrimaryKey val vodId: Int,
     val name: String,
