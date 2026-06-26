@@ -9,14 +9,15 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaobaotv.app.ui.components.VodPosterCard
+import com.xiaobaotv.app.ui.navigation.isExpandedLayout
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,6 +27,7 @@ fun SearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onVodClickRemembered = remember(onVodClick) { { id: Int -> onVodClick(id) } }
+    val isTablet = isExpandedLayout()
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Search Bar
@@ -66,8 +68,10 @@ fun SearchScreen(
             }
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = if (isTablet) GridCells.Adaptive(130.dp) else GridCells.Fixed(3),
                 contentPadding = PaddingValues(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(uiState.results, key = { it.id }) { vod ->

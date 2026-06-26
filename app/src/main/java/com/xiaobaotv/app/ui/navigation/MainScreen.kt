@@ -1,9 +1,15 @@
 package com.xiaobaotv.app.ui.navigation
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +21,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -28,16 +36,24 @@ class FullScreenState {
 val LocalFullScreenState = staticCompositionLocalOf { FullScreenState() }
 
 @Composable
+fun isExpandedLayout(): Boolean {
+    val configuration = LocalConfiguration.current
+    return configuration.screenWidthDp >= 600
+}
+
+@Composable
 fun MainScreen() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val fullScreenState = remember { FullScreenState() }
 
+    val isTablet = isExpandedLayout()
+
     CompositionLocalProvider(LocalFullScreenState provides fullScreenState) {
         Scaffold(
             bottomBar = {
-                if (!fullScreenState.isActive) {
+                if (!fullScreenState.isActive && !isTablet) {
                     NavigationBar {
                         BottomNavItem.items.forEach { item ->
                             val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
@@ -65,10 +81,53 @@ fun MainScreen() {
                 }
             }
         ) { innerPadding ->
-            XiaobaoNavHost(
-                navController = navController,
-                modifier = Modifier.padding(innerPadding)
-            )
+            Row(modifier = Modifier.fillMaxSize()) {
+                if (!fullScreenState.isActive && isTablet) {
+                    NavigationRail(
+                        modifier = Modifier.fillMaxHeight(),
+                        header = {
+                            Text(
+                                text = "小宝TV",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                        }
+                    ) {
+                        BottomNavItem.items.forEach { item ->
+                            val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
+                            NavigationRailItem(
+                                icon = {
+                                    Icon(
+                                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                                        contentDescription = item.label
+                                    )
+                                },
+                                label = { Text(item.label) },
+                                selected = selected,
+                                onClick = {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                val hostModifier = if (isTablet) {
+                    Modifier.padding(top = innerPadding.calculateTopPadding(), bottom = innerPadding.calculateBottomPadding())
+                } else {
+                    Modifier.padding(innerPadding)
+                }
+                XiaobaoNavHost(
+                    navController = navController,
+                    modifier = hostModifier.weight(1f)
+                )
+            }
         }
     }
 }

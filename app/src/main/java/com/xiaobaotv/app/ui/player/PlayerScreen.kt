@@ -1,44 +1,52 @@
 package com.xiaobaotv.app.ui.player
 
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.annotation.OptIn
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.hilt.navigation.compose.hiltViewModel
-import com.xiaobaotv.app.ui.navigation.LocalFullScreenState
 import androidx.media3.common.ForwardingPlayer
-import androidx.media3.common.Player
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.ui.PlayerControlView
 import androidx.media3.ui.PlayerView
+import com.xiaobaotv.app.ui.navigation.LocalFullScreenState
 import kotlinx.coroutines.delay
-import androidx.media3.exoplayer.DefaultLoadControl
-
-private data class SkipEvent(val deltaMs: Long)
+import java.util.Locale
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -51,8 +59,17 @@ fun PlayerScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val fullScreenState = LocalFullScreenState.current
+
+    // Custom Compose overlay states
     var showControls by remember { mutableStateOf(true) }
-    var skipEvent by remember { mutableStateOf<SkipEvent?>(null) }
+    var skipText by remember { mutableStateOf<String?>(null) }
+    var isPlaying by remember { mutableStateOf(true) }
+    var currentPlaybackSpeed by remember { mutableStateOf(1.0f) }
+    var isSpeedMenuExpanded by remember { mutableStateOf(false) }
+
+    // Dynamic position values for slider and timestamps
+    var currentPosMs by remember { mutableLongStateOf(0L) }
+    var totalDurationMs by remember { mutableLongStateOf(0L) }
 
     // Thread-safe refs for ForwardingPlayer — updated whenever uiState changes
     val hasNextRef = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
@@ -62,10 +79,19 @@ fun PlayerScreen(
         hasPrevRef.set(uiState.hasPreviousEpisode)
     }
 
-    LaunchedEffect(skipEvent) {
-        if (skipEvent != null) {
-            delay(500L)
-            skipEvent = null
+    // Auto-hide controls after inactivity
+    LaunchedEffect(showControls) {
+        if (showControls) {
+            delay(5000L)
+            showControls = false
+        }
+    }
+
+    // Reset skip indicator after a short delay
+    LaunchedEffect(skipText) {
+        if (skipText != null) {
+            delay(800L)
+            skipText = null
         }
     }
 
@@ -77,21 +103,9 @@ fun PlayerScreen(
             .setUpstreamDataSourceFactory(dataSourceFactory)
         val basePlayer = ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
-            .setLoadControl(
-                androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        15_000,
-                        60_000,
-                        2_500,
-                        5_000
-                    )
-                    .setTargetBufferBytes(2 * 1024 * 1024)
-                    .setPrioritizeTimeOverSizeThresholds(false)
-                    .build()
-            )
             .build()
 
-        // Wrap to expose next/prev commands so the default PlayerControlView buttons work
+        // Wrap to expose next/prev commands
         object : ForwardingPlayer(basePlayer) {
             override fun isCommandAvailable(command: Int): Boolean {
                 return getAvailableCommands().contains(command)
@@ -101,11 +115,9 @@ fun PlayerScreen(
                 val commands = super.getAvailableCommands()
                 var builder = commands.buildUpon()
                 if (hasNextRef.get()) {
-                    builder = builder.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
                     builder = builder.add(Player.COMMAND_SEEK_TO_NEXT)
                 }
                 if (hasPrevRef.get()) {
-                    builder = builder.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
                     builder = builder.add(Player.COMMAND_SEEK_TO_PREVIOUS)
                 }
                 return builder.build()
@@ -126,6 +138,15 @@ fun PlayerScreen(
         }
     }
 
+    // Listen for play/pause state changes
+    LaunchedEffect(exoPlayer) {
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(playing: Boolean) {
+                isPlaying = playing
+            }
+        })
+    }
+
     LaunchedEffect(vodId) {
         viewModel.loadVideoInfo(vodId, episodeIndex)
     }
@@ -142,13 +163,15 @@ fun PlayerScreen(
         }
     }
 
-    // Position polling — feed position to ViewModel for periodic saves
+    // Position polling — update slider values and feed position to ViewModel
     LaunchedEffect(exoPlayer) {
         while (true) {
+            currentPosMs = exoPlayer.currentPosition
+            totalDurationMs = exoPlayer.duration.coerceAtLeast(0L)
             if (exoPlayer.isPlaying) {
-                viewModel.updatePlaybackState(exoPlayer.currentPosition, exoPlayer.duration)
+                viewModel.updatePlaybackState(currentPosMs, totalDurationMs)
             }
-            delay(1500L)
+            delay(500L)
         }
     }
 
@@ -170,146 +193,302 @@ fun PlayerScreen(
         onDispose { exoPlayer.release() }
     }
 
-    // Full-screen toggle
+    // Full-screen immersive mode toggle
     val activity = LocalContext.current as? ComponentActivity
-    LaunchedEffect(fullScreenState.isActive) {
-        if (activity == null) return@LaunchedEffect
-        if (fullScreenState.isActive) {
-            activity.window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-            activity.window.decorView.systemUiVisibility =
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
-                View.SYSTEM_UI_FLAG_FULLSCREEN or
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-        } else {
-            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-            activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
-        }
+    LaunchedEffect(Unit) {
+        fullScreenState.isActive = true
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        @Suppress("DEPRECATION")
+        activity?.window?.decorView?.systemUiVisibility =
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+            View.SYSTEM_UI_FLAG_FULLSCREEN or
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
     }
 
     DisposableEffect(Unit) {
         onDispose {
-            if (fullScreenState.isActive && activity != null) {
-                activity.window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
-                activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
-            }
             fullScreenState.isActive = false
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+            @Suppress("DEPRECATION")
+            activity?.window?.decorView?.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        // Video native renderer — XML controls disabled, Compose overlay handles everything
+        AndroidView(
+            factory = { ctx ->
+                PlayerView(ctx).apply {
+                    player = exoPlayer
+                    useController = false
+                }
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = { offset ->
+                            val seekAmount = if (offset.x < size.width / 2f) -10000L else 10000L
+                            val target = (exoPlayer.currentPosition + seekAmount)
+                                .coerceIn(0L, totalDurationMs.coerceAtLeast(0))
+                            exoPlayer.seekTo(target)
+                            skipText = if (seekAmount > 0) "快进 10s" else "快退 10s"
+                        },
+                        onTap = {
+                            showControls = !showControls
+                        }
+                    )
+                }
+        )
+
+        // Loading indicator
         if (uiState.isLoading) {
             CircularProgressIndicator(
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.align(Alignment.Center)
+                modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.primary
             )
         }
+
+        // Error text
         uiState.error?.let { error ->
-            Text(text = "$error", color = Color.White, modifier = Modifier.align(Alignment.Center))
-        }
-        if (uiState.playbackUrl != null) {
-            var playerFullScreen = false
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        player = exoPlayer
-                        useController = true
-                        setFullscreenButtonClickListener {
-                            playerFullScreen = !playerFullScreen
-                            fullScreenState.isActive = playerFullScreen
-                        }
-                        var controllerVisible = true
-                        // Delayed controls toggle — waits to confirm this isn't the start of a double-tap
-                        val showControlsRunnable = Runnable {
-                            if (controllerVisible) hideController() else showController()
-                        }
-                        setControllerVisibilityListener(
-                            PlayerControlView.VisibilityListener { visibility: Int ->
-                                controllerVisible = visibility == View.VISIBLE
-                                showControls = visibility == View.VISIBLE
-                            }
-                        )
-                        val gestureDetector = GestureDetector(
-                            ctx,
-                            object : GestureDetector.SimpleOnGestureListener() {
-                                private var isDoubleTap = false
-
-                                override fun onDown(e: MotionEvent): Boolean {
-                                    return true // consume all touches to prevent PlayerView from toggling controls
-                                }
-
-                                override fun onSingleTapUp(e: MotionEvent): Boolean {
-                                    if (isDoubleTap) return true
-                                    // Delay controls toggle briefly to see if this is the start of a double-tap
-                                    removeCallbacks(showControlsRunnable)
-                                    postDelayed(showControlsRunnable, 150L)
-                                    return true
-                                }
-
-                                override fun onDoubleTap(e: MotionEvent): Boolean {
-                                    isDoubleTap = true
-                                    // Cancel pending controls toggle — this is a double-tap, not a single tap
-                                    removeCallbacks(showControlsRunnable)
-                                    val seekAmount =
-                                        if (e.x < width / 2f) -5000L else 5000L
-                                    val newPos = (exoPlayer.currentPosition + seekAmount)
-                                        .coerceIn(0L, exoPlayer.duration.coerceAtLeast(0))
-                                    exoPlayer.seekTo(newPos)
-                                    skipEvent = SkipEvent(seekAmount)
-                                    return true
-                                }
-
-                                override fun onDoubleTapEvent(e: MotionEvent): Boolean {
-                                    if (e.actionMasked == MotionEvent.ACTION_UP) {
-                                        isDoubleTap = false
-                                    }
-                                    return true // consume all double-tap events
-                                }
-                            }
-                        )
-                        setOnTouchListener { _, event ->
-                            gestureDetector.onTouchEvent(event)
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
+            Text(
+                text = error,
+                color = Color.White,
+                modifier = Modifier.align(Alignment.Center)
             )
         }
 
         // Skip indicator overlay
-        skipEvent?.let { event ->
+        skipText?.let { text ->
             Box(
                 modifier = Modifier
-                    .align(if (event.deltaMs > 0) Alignment.CenterEnd else Alignment.CenterStart)
-                    .padding(horizontal = 48.dp)
-                    .size(60.dp)
-                    .background(Color.Black.copy(alpha = 0.75f), CircleShape),
-                contentAlignment = Alignment.Center
+                    .align(Alignment.Center)
+                    .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = "${if (event.deltaMs > 0) "+" else ""}${event.deltaMs / 1000}s",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
+                Text(text = text, color = Color.White, fontWeight = FontWeight.Bold)
             }
         }
 
-        // Back button overlay
-        if (showControls) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(8.dp)
-                    .size(44.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "返回",
-                    tint = Color.White
+        // Full Compose overlay controls
+        AnimatedVisibility(
+            visible = showControls,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Top gradient + header
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Black.copy(alpha = 0.8f), Color.Transparent)
+                            )
+                        )
+                        .align(Alignment.TopCenter)
                 )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .align(Alignment.TopStart),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回",
+                            tint = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = uiState.sources
+                            .getOrNull(uiState.currentSourceIndex)
+                            ?.episodes
+                            ?.getOrNull(uiState.currentEpisodeIndex)
+                            ?.name ?: "正在播放",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Center play/pause + prev/next
+                Row(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { exoPlayer.seekToPreviousMediaItem() },
+                        enabled = uiState.hasPreviousEpisode,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            disabledContentColor = Color.Gray.copy(alpha = 0.5f),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Filled.SkipPrevious,
+                            contentDescription = "上一集",
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
+                            if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+                        },
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = "播放/暂停",
+                            tint = Color.White,
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { exoPlayer.seekToNextMediaItem() },
+                        enabled = uiState.hasNextEpisode,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            disabledContentColor = Color.Gray.copy(alpha = 0.5f),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Filled.SkipNext,
+                            contentDescription = "下一集",
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+
+                // Bottom gradient + timeline + speed
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))
+                            )
+                        )
+                        .align(Alignment.BottomCenter)
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    // Timeline slider with timestamps
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = formatTime(currentPosMs),
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
+
+                        Slider(
+                            value = if (totalDurationMs > 0) {
+                                (currentPosMs.toFloat() / totalDurationMs).coerceIn(0f, 1f)
+                            } else 0f,
+                            onValueChange = { percent ->
+                                val target = (percent * totalDurationMs).toLong()
+                                exoPlayer.seekTo(target)
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 8.dp),
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = Color.Gray.copy(alpha = 0.5f)
+                            )
+                        )
+
+                        Text(
+                            text = formatTime(totalDurationMs),
+                            color = Color.White,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    // Speed selector
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box {
+                            TextButton(onClick = { isSpeedMenuExpanded = true }) {
+                                Icon(
+                                    Icons.Default.Speed,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${currentPlaybackSpeed}x",
+                                    color = Color.White
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = isSpeedMenuExpanded,
+                                onDismissRequest = { isSpeedMenuExpanded = false }
+                            ) {
+                                listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speed ->
+                                    DropdownMenuItem(
+                                        text = { Text("${speed}x") },
+                                        onClick = {
+                                            currentPlaybackSpeed = speed
+                                            exoPlayer.setPlaybackSpeed(speed)
+                                            isSpeedMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+}
+
+private fun formatTime(ms: Long): String {
+    val totalSeconds = ms / 1000
+    val seconds = totalSeconds % 60
+    val minutes = (totalSeconds / 60) % 60
+    val hours = totalSeconds / 3600
+    return if (hours > 0) {
+        String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
+    } else {
+        String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
     }
 }

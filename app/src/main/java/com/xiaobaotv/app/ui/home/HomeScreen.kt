@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -14,8 +16,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,6 +29,7 @@ import coil.compose.AsyncImage
 import com.xiaobaotv.app.domain.model.WatchHistoryItem
 import com.xiaobaotv.app.ui.components.SectionHeader
 import com.xiaobaotv.app.ui.components.VodPosterCard
+import com.xiaobaotv.app.ui.navigation.isExpandedLayout
 
 @Composable
 fun HomeScreen(
@@ -33,6 +38,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onVodClickRemembered = remember(onVodClick) { { id: Int -> onVodClick(id) } }
+    val isTablet = isExpandedLayout()
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading) {
@@ -47,12 +53,63 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-            item {
-                Text(
-                    text = "热门推荐",
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(16.dp)
-                )
+            // Hero Banner Carousel
+            if (uiState.heroItems.isNotEmpty()) {
+                item {
+                    val pagerState = rememberPagerState(pageCount = { uiState.heroItems.size })
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(if (isTablet) 320.dp else 220.dp)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    ) {
+                        HorizontalPager(state = pagerState) { page ->
+                            val vod = uiState.heroItems[page]
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable { onVodClickRemembered(vod.id) }
+                            ) {
+                                AsyncImage(
+                                    model = vod.pic,
+                                    contentDescription = vod.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)),
+                                                startY = 100f
+                                            )
+                                        )
+                                )
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(16.dp)
+                                ) {
+                                    Text(
+                                        text = vod.name,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    vod.remarks?.let {
+                                        Text(
+                                            text = it,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primaryContainer
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             // Continue Watching Row
@@ -61,7 +118,8 @@ fun HomeScreen(
                 item {
                     LazyRow(
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(
                             items = uiState.continueWatchingList,
@@ -70,7 +128,8 @@ fun HomeScreen(
                         ) { history ->
                             HistoryPosterCard(
                                 history = history,
-                                onClick = onVodClickRemembered
+                                onClick = onVodClickRemembered,
+                                modifier = Modifier.width(if (isTablet) 140.dp else 120.dp)
                             )
                         }
                     }
@@ -83,7 +142,8 @@ fun HomeScreen(
                 item {
                     LazyRow(
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(
                             items = uiState.hotMovies,
@@ -92,7 +152,8 @@ fun HomeScreen(
                         ) { vod ->
                             VodPosterCard(
                                 vod = vod,
-                                onClick = onVodClickRemembered
+                                onClick = onVodClickRemembered,
+                                modifier = Modifier.width(if (isTablet) 140.dp else 120.dp)
                             )
                         }
                     }
@@ -105,7 +166,8 @@ fun HomeScreen(
                 item {
                     LazyRow(
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(
                             items = uiState.hotTvSeries,
@@ -114,7 +176,8 @@ fun HomeScreen(
                         ) { vod ->
                             VodPosterCard(
                                 vod = vod,
-                                onClick = onVodClickRemembered
+                                onClick = onVodClickRemembered,
+                                modifier = Modifier.width(if (isTablet) 140.dp else 120.dp)
                             )
                         }
                     }
@@ -127,7 +190,8 @@ fun HomeScreen(
                 item {
                     LazyRow(
                         modifier = Modifier.padding(horizontal = 12.dp),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
+                        contentPadding = PaddingValues(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(
                             items = uiState.hotAnime,
@@ -136,7 +200,8 @@ fun HomeScreen(
                         ) { vod ->
                             VodPosterCard(
                                 vod = vod,
-                                onClick = onVodClickRemembered
+                                onClick = onVodClickRemembered,
+                                modifier = Modifier.width(if (isTablet) 140.dp else 120.dp)
                             )
                         }
                     }
@@ -154,14 +219,13 @@ fun HistoryPosterCard(
 ) {
     Column(
         modifier = modifier
-            .width(120.dp)
             .clickable { onClick(history.vodId) }
             .padding(4.dp)
     ) {
         Box(
             modifier = Modifier
-                .width(120.dp)
-                .height(160.dp)
+                .aspectRatio(0.75f)
+                .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {

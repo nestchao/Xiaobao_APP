@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.xiaobaotv.app.ui.components.VodPosterCard
+import com.xiaobaotv.app.ui.navigation.isExpandedLayout
 
 @Composable
 fun CategoryScreen(
@@ -23,6 +24,7 @@ fun CategoryScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pagingItems = viewModel.pagingDataFlow.collectAsLazyPagingItems()
     val onVodClickRemembered = remember(onVodClick) { { id: Int -> onVodClick(id) } }
+    val isTablet = isExpandedLayout()
 
     val categories = listOf(
         1 to "电影",
@@ -53,8 +55,10 @@ fun CategoryScreen(
             }
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = if (isTablet) GridCells.Adaptive(130.dp) else GridCells.Fixed(3),
                 contentPadding = PaddingValues(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(
