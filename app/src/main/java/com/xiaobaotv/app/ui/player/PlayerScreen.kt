@@ -26,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.xiaobaotv.app.ui.navigation.LocalFullScreenState
+import androidx.media3.common.ForwardingPlayer
+import androidx.media3.common.Player
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -50,6 +52,14 @@ fun PlayerScreen(
     data class SkipEvent(val deltaMs: Long)
     var skipEvent by remember { mutableStateOf<SkipEvent?>(null) }
 
+    // Thread-safe refs for ForwardingPlayer — updated whenever uiState changes
+    val hasNextRef = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val hasPrevRef = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    LaunchedEffect(uiState) {
+        hasNextRef.set(uiState.hasNextEpisode)
+        hasPrevRef.set(uiState.hasPreviousEpisode)
+    }
+
     LaunchedEffect(skipEvent) {
         if (skipEvent != null) {
             delay(500L)
@@ -63,7 +73,7 @@ fun PlayerScreen(
         val cacheDataSourceFactory = androidx.media3.datasource.cache.CacheDataSource.Factory()
             .setCache(viewModel.exoPlayerCache)
             .setUpstreamDataSourceFactory(dataSourceFactory)
-        ExoPlayer.Builder(context)
+        val basePlayer = ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
@@ -76,6 +86,40 @@ fun PlayerScreen(
                     .build()
             )
             .build()
+
+        // Wrap to expose next/prev commands so the default PlayerControlView buttons work
+        object : ForwardingPlayer(basePlayer) {
+            override fun isCommandAvailable(command: Int): Boolean {
+                return getAvailableCommands().contains(command)
+            }
+
+            override fun getAvailableCommands(): Player.Commands {
+                val commands = super.getAvailableCommands()
+                var builder = commands.buildUpon()
+                if (hasNextRef.get()) {
+                    builder = builder.add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                    builder = builder.add(Player.COMMAND_SEEK_TO_NEXT)
+                }
+                if (hasPrevRef.get()) {
+                    builder = builder.add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                    builder = builder.add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                }
+                return builder.build()
+            }
+
+            override fun seekToNextMediaItem() {
+                val nextIndex = viewModel.uiState.value.currentEpisodeIndex + 1
+                viewModel.selectEpisode(nextIndex)
+            }
+
+            override fun seekToPreviousMediaItem() {
+                val prevIndex = viewModel.uiState.value.currentEpisodeIndex - 1
+                viewModel.selectEpisode(prevIndex)
+            }
+
+            override fun seekToNext() = seekToNextMediaItem()
+            override fun seekToPrevious() = seekToPreviousMediaItem()
+        }
     }
 
     LaunchedEffect(vodId) {

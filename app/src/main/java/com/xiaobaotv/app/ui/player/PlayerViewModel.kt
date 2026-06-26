@@ -31,7 +31,15 @@ data class PlayerUiState(
     val playbackUrl: String? = null,
     val savedPositionMs: Long = 0L,
     val error: String? = null
-)
+) {
+    val hasNextEpisode: Boolean
+        get() {
+            val episodes = sources.getOrNull(currentSourceIndex)?.episodes ?: return false
+            return currentEpisodeIndex < episodes.size - 1
+        }
+    val hasPreviousEpisode: Boolean
+        get() = currentEpisodeIndex > 0
+}
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
@@ -107,6 +115,10 @@ class PlayerViewModel @Inject constructor(
         val episode = source?.episodes?.getOrNull(episodeIndex)
 
         if (episode != null) {
+            // Save progress on the current episode before switching
+            viewModelScope.launch(Dispatchers.IO) {
+                saveProgressInternal()
+            }
             _uiState.update { it.copy(currentEpisodeIndex = episodeIndex, savedPositionMs = 0L) }
             loadPlaybackUrl(episode)
         }
