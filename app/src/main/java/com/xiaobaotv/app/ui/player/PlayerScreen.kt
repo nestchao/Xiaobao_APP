@@ -1,5 +1,7 @@
 package com.xiaobaotv.app.ui.player
 
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -19,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.xiaobaotv.app.ui.navigation.LocalFullScreenState
@@ -43,6 +47,15 @@ fun PlayerScreen(
     val context = LocalContext.current
     val fullScreenState = LocalFullScreenState.current
     var showControls by remember { mutableStateOf(true) }
+    data class SkipEvent(val deltaMs: Long)
+    var skipEvent by remember { mutableStateOf<SkipEvent?>(null) }
+
+    LaunchedEffect(skipEvent) {
+        if (skipEvent != null) {
+            delay(500L)
+            skipEvent = null
+        }
+    }
 
     val exoPlayer = remember(vodId) {
         val dataSourceFactory = DefaultHttpDataSource.Factory()
@@ -161,10 +174,48 @@ fun PlayerScreen(
                                 showControls = visibility == View.VISIBLE
                             }
                         )
+                        val gestureDetector = GestureDetector(
+                            ctx,
+                            object : GestureDetector.SimpleOnGestureListener() {
+                                override fun onDoubleTap(e: MotionEvent): Boolean {
+                                    val seekAmount =
+                                        if (e.x < width / 2f) -5000L else 5000L
+                                    val newPos = (exoPlayer.currentPosition + seekAmount)
+                                        .coerceIn(0L, exoPlayer.duration.coerceAtLeast(0))
+                                    exoPlayer.seekTo(newPos)
+                                    skipEvent = SkipEvent(seekAmount)
+                                    // Hide controls in case the first tap triggered them
+                                    post { hideController() }
+                                    return true
+                                }
+                            }
+                        )
+                        setOnTouchListener { _, event ->
+                            gestureDetector.onTouchEvent(event)
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize()
             )
+        }
+
+        // Skip indicator overlay
+        skipEvent?.let { event ->
+            Box(
+                modifier = Modifier
+                    .align(if (event.deltaMs > 0) Alignment.CenterEnd else Alignment.CenterStart)
+                    .padding(horizontal = 48.dp)
+                    .size(60.dp)
+                    .background(Color.Black.copy(alpha = 0.75f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${if (event.deltaMs > 0) "+" else ""}${event.deltaMs / 1000}s",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            }
         }
 
         // Back button overlay
