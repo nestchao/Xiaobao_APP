@@ -21,13 +21,13 @@ import com.xiaobaotv.app.domain.model.VodContent
 @Composable
 fun VodPosterCard(
     vod: VodContent,
-    onClick: () -> Unit,
+    onClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .width(120.dp)
-            .clickable { onClick() }
+            .clickable { onClick(vod.id) }
             .padding(4.dp)
     ) {
         Box(

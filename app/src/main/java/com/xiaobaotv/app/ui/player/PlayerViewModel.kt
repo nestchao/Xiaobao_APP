@@ -12,8 +12,10 @@ import com.xiaobaotv.app.domain.repository.ContentRepository
 import com.xiaobaotv.app.domain.repository.VideoRepository
 import com.xiaobaotv.app.domain.repository.WatchHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -190,8 +192,9 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         saveJob?.cancel()
-        // Save one final time — use runBlocking since viewModelScope is already cancelled
-        kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+        // Fire-and-forget final save — viewModelScope is already cancelled.
+        // Position is already saved on ON_PAUSE, so this is a safety net.
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
             saveProgressInternal()
         }
     }

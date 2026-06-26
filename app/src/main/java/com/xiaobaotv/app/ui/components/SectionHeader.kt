@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SectionHeader(
     title: String,
-    onMoreClick: () -> Unit,
+    onMoreClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -27,8 +27,10 @@ fun SectionHeader(
             fontWeight = FontWeight.Bold
         )
 
-        TextButton(onClick = onMoreClick) {
-            Text(text = "更多 >")
+        if (onMoreClick != null) {
+            TextButton(onClick = onMoreClick) {
+                Text(text = "更多 >")
+            }
         }
     }
 }

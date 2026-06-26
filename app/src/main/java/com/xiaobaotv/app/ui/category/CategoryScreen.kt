@@ -22,7 +22,7 @@ fun CategoryScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pagingItems = viewModel.pagingDataFlow.collectAsLazyPagingItems()
-    val currentOnVodClick by rememberUpdatedState(onVodClick)
+    val onVodClickRemembered = remember(onVodClick) { { id: Int -> onVodClick(id) } }
 
     val categories = listOf(
         1 to "电影",
@@ -57,10 +57,19 @@ fun CategoryScreen(
                 contentPadding = PaddingValues(8.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(count = pagingItems.itemCount, key = { index -> pagingItems[index]?.id ?: index }) { index ->
+                items(
+                    count = pagingItems.itemCount,
+                    key = { index ->
+                        val item = pagingItems[index]
+                        item?.id ?: "loading_$index"
+                    },
+                    contentType = { index ->
+                        if (pagingItems[index] != null) "vod" else "placeholder"
+                    }
+                ) { index ->
                     val vod = pagingItems[index]
                     if (vod != null) {
-                        VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
+                        VodPosterCard(vod = vod, onClick = onVodClickRemembered)
                     }
                 }
             }

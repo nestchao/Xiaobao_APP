@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,11 +32,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val hotMovies by viewModel.hotMovies.collectAsStateWithLifecycle()
-    val hotTvSeries by viewModel.hotTvSeries.collectAsStateWithLifecycle()
-    val hotAnime by viewModel.hotAnime.collectAsStateWithLifecycle()
-    val continueWatchingList by viewModel.continueWatchingList.collectAsStateWithLifecycle()
-    val currentOnVodClick by rememberUpdatedState(onVodClick)
+    val onVodClickRemembered = remember(onVodClick) { { id: Int -> onVodClick(id) } }
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading) {
@@ -60,17 +56,21 @@ fun HomeScreen(
             }
 
             // Continue Watching Row
-            if (continueWatchingList.isNotEmpty()) {
-                item { SectionHeader(title = "继续观看", onMoreClick = {}) }
+            if (uiState.continueWatchingList.isNotEmpty()) {
+                item { SectionHeader(title = "继续观看") }
                 item {
                     LazyRow(
                         modifier = Modifier.padding(horizontal = 12.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        items(continueWatchingList, key = { it.vodId }) { history ->
+                        items(
+                            items = uiState.continueWatchingList,
+                            key = { it.vodId },
+                            contentType = { "history" }
+                        ) { history ->
                             HistoryPosterCard(
                                 history = history,
-                                onClick = { currentOnVodClick(history.vodId) }
+                                onClick = onVodClickRemembered
                             )
                         }
                     }
@@ -78,40 +78,67 @@ fun HomeScreen(
             }
 
             // Movie Row
-            item { SectionHeader(title = "最新电影", onMoreClick = {}) }
-            item {
-                LazyRow(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    items(hotMovies, key = { it.id }) { vod ->
-                        VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
+            if (uiState.hotMovies.isNotEmpty()) {
+                item { SectionHeader(title = "最新电影") }
+                item {
+                    LazyRow(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        items(
+                            items = uiState.hotMovies,
+                            key = { it.id },
+                            contentType = { "vod" }
+                        ) { vod ->
+                            VodPosterCard(
+                                vod = vod,
+                                onClick = onVodClickRemembered
+                            )
+                        }
                     }
                 }
             }
 
             // TV Row
-            item { SectionHeader(title = "热门剧集", onMoreClick = {}) }
-            item {
-                LazyRow(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    items(hotTvSeries, key = { it.id }) { vod ->
-                        VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
+            if (uiState.hotTvSeries.isNotEmpty()) {
+                item { SectionHeader(title = "热门剧集") }
+                item {
+                    LazyRow(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        items(
+                            items = uiState.hotTvSeries,
+                            key = { it.id },
+                            contentType = { "vod" }
+                        ) { vod ->
+                            VodPosterCard(
+                                vod = vod,
+                                onClick = onVodClickRemembered
+                            )
+                        }
                     }
                 }
             }
 
             // Anime Row
-            item { SectionHeader(title = "热门动漫", onMoreClick = {}) }
-            item {
-                LazyRow(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    items(hotAnime, key = { it.id }) { vod ->
-                        VodPosterCard(vod = vod, onClick = { currentOnVodClick(vod.id) })
+            if (uiState.hotAnime.isNotEmpty()) {
+                item { SectionHeader(title = "热门动漫") }
+                item {
+                    LazyRow(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        items(
+                            items = uiState.hotAnime,
+                            key = { it.id },
+                            contentType = { "vod" }
+                        ) { vod ->
+                            VodPosterCard(
+                                vod = vod,
+                                onClick = onVodClickRemembered
+                            )
+                        }
                     }
                 }
             }
@@ -122,13 +149,13 @@ fun HomeScreen(
 @Composable
 fun HistoryPosterCard(
     history: WatchHistoryItem,
-    onClick: () -> Unit,
+    onClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .width(120.dp)
-            .clickable { onClick() }
+            .clickable { onClick(history.vodId) }
             .padding(4.dp)
     ) {
         Box(

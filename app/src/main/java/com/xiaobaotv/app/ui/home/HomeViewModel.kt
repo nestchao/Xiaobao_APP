@@ -1,5 +1,6 @@
 package com.xiaobaotv.app.ui.home
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xiaobaotv.app.domain.model.VodContent
@@ -12,15 +13,21 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@Immutable
 data class HomeUiState(
     val isLoading: Boolean = false,
     val heroItems: List<VodContent> = emptyList(),
+    val hotMovies: List<VodContent> = emptyList(),
+    val hotTvSeries: List<VodContent> = emptyList(),
+    val hotAnime: List<VodContent> = emptyList(),
+    val continueWatchingList: List<WatchHistoryItem> = emptyList(),
     val error: String? = null
 )
 
@@ -33,18 +40,6 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private val _hotMovies = MutableStateFlow<List<VodContent>>(emptyList())
-    val hotMovies: StateFlow<List<VodContent>> = _hotMovies.asStateFlow()
-
-    private val _hotTvSeries = MutableStateFlow<List<VodContent>>(emptyList())
-    val hotTvSeries: StateFlow<List<VodContent>> = _hotTvSeries.asStateFlow()
-
-    private val _hotAnime = MutableStateFlow<List<VodContent>>(emptyList())
-    val hotAnime: StateFlow<List<VodContent>> = _hotAnime.asStateFlow()
-
-    private val _continueWatchingList = MutableStateFlow<List<WatchHistoryItem>>(emptyList())
-    val continueWatchingList: StateFlow<List<WatchHistoryItem>> = _continueWatchingList.asStateFlow()
-
     init {
         loadHomeContent()
         observeWatchHistory()
@@ -53,7 +48,10 @@ class HomeViewModel @Inject constructor(
     private fun observeWatchHistory() {
         watchHistoryRepository.getWatchHistory()
             .onEach { historyList ->
-                _continueWatchingList.value = historyList.take(10)
+                _uiState.update { it.copy(continueWatchingList = historyList.take(10)) }
+            }
+            .catch { e ->
+                _uiState.update { it.copy(error = e.message) }
             }
             .launchIn(viewModelScope)
     }
@@ -76,17 +74,18 @@ class HomeViewModel @Inject constructor(
                 val tvSeries = tvResult.getOrDefault(emptyList())
                 val anime = animeResult.getOrDefault(emptyList())
 
-                _uiState.update { it.copy(isLoading = false, heroItems = movies.take(5)) }
-                _hotMovies.value = movies
-                _hotTvSeries.value = tvSeries
-                _hotAnime.value = anime
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        heroItems = movies.take(5),
+                        hotMovies = movies,
+                        hotTvSeries = tvSeries,
+                        hotAnime = anime
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
-    }
-
-    companion object {
-        private const val TAG = "HomeViewModel"
     }
 }

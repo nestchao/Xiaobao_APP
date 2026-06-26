@@ -8,11 +8,13 @@ data class VideoSourceList(
     val sources: List<VideoSource>
 )
 
+@Immutable
 data class VideoSource(
     val name: String,
     val episodes: List<Episode>
 )
 
+@Immutable
 data class Episode(
     val index: Int,
     val name: String,

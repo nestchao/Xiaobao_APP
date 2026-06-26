@@ -36,6 +36,9 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerControlView
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
+import androidx.media3.exoplayer.DefaultLoadControl
+
+private data class SkipEvent(val deltaMs: Long)
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -49,7 +52,6 @@ fun PlayerScreen(
     val context = LocalContext.current
     val fullScreenState = LocalFullScreenState.current
     var showControls by remember { mutableStateOf(true) }
-    data class SkipEvent(val deltaMs: Long)
     var skipEvent by remember { mutableStateOf<SkipEvent?>(null) }
 
     // Thread-safe refs for ForwardingPlayer — updated whenever uiState changes
@@ -78,11 +80,13 @@ fun PlayerScreen(
             .setLoadControl(
                 androidx.media3.exoplayer.DefaultLoadControl.Builder()
                     .setBufferDurationsMs(
-                        30_000,
-                        120_000,
+                        15_000,
+                        60_000,
                         2_500,
                         5_000
                     )
+                    .setTargetBufferBytes(2 * 1024 * 1024)
+                    .setPrioritizeTimeOverSizeThresholds(false)
                     .build()
             )
             .build()

@@ -13,4 +13,6 @@ interface ContentRepository {
     ): Result<List<VodContent>>
 
     suspend fun getVodDetail(id: Int): Result<VodContent>
+
+    suspend fun cleanupStaleCache()
 }

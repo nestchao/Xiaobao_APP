@@ -38,7 +38,7 @@ class ContentRepositoryImpl @Inject constructor(
             return size > MAX_VOD_CACHE
         }
     }
-    private val detailCacheTtl = 60 * 60 * 1000L // 1 hour
+    private val detailCacheTtl = 60 * 60 * 1000L // 1 hour         
 
     @Synchronized
     private fun getVodFromCache(id: Int): VodContent? = vodCache[id]
@@ -99,6 +99,9 @@ class ContentRepositoryImpl @Inject constructor(
             putVodInCache(id, cachedVod)
             return Result.success(cachedVod)
         }
+
+        // Periodic cleanup on cache miss: delete entries >24h old
+        cleanupStaleCache()
 
         return try {
             val item = fetchWithRetry(id)
@@ -223,6 +226,11 @@ class ContentRepositoryImpl @Inject constructor(
             Timber.e(e, "Exception fetching show page typeId=$typeId page=$page")
             emptyList()
         }
+    }
+
+    override suspend fun cleanupStaleCache() {
+        val threshold = System.currentTimeMillis() - 24 * 60 * 60 * 1000L // 24 hours
+        vodContentDao.deleteStale(threshold)
     }
 
     companion object {
