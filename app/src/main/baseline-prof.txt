@@ -3,119 +3,113 @@
 # Generated for app version 1.0.0
 
 # ── Startup – Application & DI ──
-com.xiaobaotv.app.XiaobaoApp
-com.xiaobaotv.app.di.*
-com.xiaobaotv.app.data.di.*
+Lcom/xiaobaotv/app/XiaobaoApp;
+Lcom/xiaobaotv/app/di/**;
+Lcom/xiaobaotv/app/data/di/**;
 
 # ── Navigation ──
-com.xiaobaotv.app.ui.navigation.XiaobaoNavHost
-com.xiaobaotv.app.ui.navigation.BottomNavItem
-com.xiaobaotv.app.ui.navigation.Routes
-com.xiaobaotv.app.ui.navigation.*
+Lcom/xiaobaotv/app/ui/navigation/XiaobaoNavHost;
+Lcom/xiaobaotv/app/ui/navigation/BottomNavItem;
+Lcom/xiaobaotv/app/ui/navigation/Routes;
+Lcom/xiaobaotv/app/ui/navigation/**;
 
 # ── Home Screen (first screen) ──
-com.xiaobaotv.app.ui.home.HomeScreenKt
-com.xiaobaotv.app.ui.home.HomeViewModel
-com.xiaobaotv.app.ui.components.VodPosterCard
-com.xiaobaotv.app.ui.components.*
+Lcom/xiaobaotv/app/ui/home/HomeScreenKt;
+Lcom/xiaobaotv/app/ui/home/HomeViewModel;
+Lcom/xiaobaotv/app/ui/components/VodPosterCard;
+Lcom/xiaobaotv/app/ui/components/**;
 
 # ── Detail Screen ──
-com.xiaobaotv.app.ui.detail.DetailScreenKt
-com.xiaobaotv.app.ui.detail.DetailViewModel
+Lcom/xiaobaotv/app/ui/detail/DetailScreenKt;
+Lcom/xiaobaotv/app/ui/detail/DetailViewModel;
 
 # ── Player Screen ──
-com.xiaobaotv.app.ui.player.PlayerScreenKt
-com.xiaobaotv.app.ui.player.PlayerViewModel
+Lcom/xiaobaotv/app/ui/player/PlayerScreenKt;
+Lcom/xiaobaotv/app/ui/player/PlayerViewModel;
 
 # ── Category Screen ──
-com.xiaobaotv.app.ui.category.CategoryScreenKt
-com.xiaobaotv.app.ui.category.CategoryViewModel
-com.xiaobaotv.app.ui.category.CategoryPagingSource
+Lcom/xiaobaotv/app/ui/category/CategoryScreenKt;
+Lcom/xiaobaotv/app/ui/category/CategoryViewModel;
+Lcom/xiaobaotv/app/ui/category/CategoryPagingSource;
 
 # ── Search Screen ──
-com.xiaobaotv.app.ui.search.SearchScreenKt
-com.xiaobaotv.app.ui.search.SearchViewModel
+Lcom/xiaobaotv/app/ui/search/SearchScreenKt;
+Lcom/xiaobaotv/app/ui/search/SearchViewModel;
 
 # ── Profile / History ──
-com.xiaobaotv.app.ui.profile.*
-com.xiaobaotv.app.ui.history.*
+Lcom/xiaobaotv/app/ui/profile/**;
+Lcom/xiaobaotv/app/ui/history/**;
 
 # ── Theme ──
-com.xiaobaotv.app.ui.theme.*
+Lcom/xiaobaotv/app/ui/theme/**;
 
 # ── Data Layer ──
-com.xiaobaotv.app.data.repository.*
-com.xiaobaotv.app.data.repository.*$*
-com.xiaobaotv.app.data.parser.*
-com.xiaobaotv.app.data.parser.*$*
-com.xiaobaotv.app.data.remote.*
-com.xiaobaotv.app.data.local.*
-com.xiaobaotv.app.data.local.*$*
-com.xiaobaotv.app.data.cache.*
-com.xiaobaotv.app.data.model.*
+Lcom/xiaobaotv/app/data/repository/**;
+Lcom/xiaobaotv/app/data/parser/**;
+Lcom/xiaobaotv/app/data/remote/**;
+Lcom/xiaobaotv/app/data/local/**;
+Lcom/xiaobaotv/app/data/cache/**;
+Lcom/xiaobaotv/app/data/model/**;
 
 # ── Domain Models ──
-com.xiaobaotv.app.domain.model.*
+Lcom/xiaobaotv/app/domain/model/**;
 
 # ── Compose Framework ──
-androidx.compose.material3.*
-androidx.compose.material3.*$*
-androidx.compose.foundation.*
-androidx.compose.foundation.lazy.*
-androidx.compose.foundation.lazy.*$*
-androidx.compose.ui.*
-androidx.compose.ui.platform.*
-androidx.compose.runtime.*
-androidx.compose.animation.*
-androidx.compose.animation.core.*
+Landroidx/compose/material3/**;
+Landroidx/compose/foundation/**;
+Landroidx/compose/foundation/lazy/**;
+Landroidx/compose/ui/**;
+Landroidx/compose/ui/platform/**;
+Landroidx/compose/runtime/**;
+Landroidx/compose/animation/**;
+Landroidx/compose/animation/core/**;
 
 # ── Coil Image Loading ──
-coil.*
-coil.*$*
+Lcoil/**;
 
 # ── Room ──
-androidx.room.*
+Landroidx/room/**;
 
 # ── OkHttp ──
-okhttp3.*
-okhttp3.internal.*
+Lokhttp3/**;
+Lokhttp3/internal/**;
 
 # ── ExoPlayer / Media3 ──
-androidx.media3.*
-androidx.media3.exoplayer.*
-androidx.media3.exoplayer.hls.*
+Landroidx/media3/**;
+Landroidx/media3/exoplayer/**;
+Landroidx/media3/exoplayer/hls/**;
 
 # ── Coroutines ──
-kotlinx.coroutines.*
-kotlinx.coroutines.android.*
-kotlinx.coroutines.flow.*
+Lkotlinx/coroutines/**;
+Lkotlinx/coroutines/android/**;
+Lkotlinx/coroutines/flow/**;
 
 # ── Navigation Compose ──
-androidx.navigation.*
-androidx.navigation.compose.*
+Landroidx/navigation/**;
+Landroidx/navigation/compose/**;
 
 # ── Lifecycle ──
-androidx.lifecycle.*
+Landroidx/lifecycle/**;
 
 # ── Paging 3 ──
-androidx.paging.*
+Landroidx/paging/**;
 
 # ── Jsoup HTML Parser ──
-org.jsoup.*
+Lorg/jsoup/**;
 
 # ── Hilt DI ──
-dagger.hilt.*
-dagger.hilt.android.*
-dagger.hilt.internal.*
+Ldagger/hilt/**;
+Ldagger/hilt/android/**;
+Ldagger/hilt/internal/**;
 
 # ── Splash Screen (API 31+) ──
-androidx.core.splashscreen.*
+Landroidx/core/splashscreen/**;
 
 # ── Retrofit ──
-retrofit2.*
+Lretrofit2/**;
 
 # ── Moshi ──
-com.squareup.moshi.*
+Lcom/squareup/moshi/**;
 
 # ── Timber Logging ──
-timber.log.*
+Ltimber/log/**;
