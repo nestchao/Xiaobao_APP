@@ -3,9 +3,8 @@ package com.xiaobaotv.app.ui.detail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -98,31 +97,130 @@ private fun TabletDetailLayout(
     onBackClick: () -> Unit,
     onRetrySources: () -> Unit
 ) {
+    val scrollState = rememberScrollState()
     Box(modifier = Modifier.fillMaxSize()) {
-        // Backdrop
-        Box(
+        // Scrollable content area
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp)
+                .fillMaxSize()
+                .verticalScroll(scrollState)
         ) {
-            AsyncImage(
-                model = vod.pic,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            // Backdrop
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Black.copy(alpha = 0.3f),
-                                Color.Black.copy(alpha = 0.85f)
+                    .fillMaxWidth()
+                    .height(260.dp)
+            ) {
+                AsyncImage(
+                    model = vod.pic,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.3f),
+                                    Color.Black.copy(alpha = 0.85f)
+                                )
                             )
                         )
+                )
+            }
+
+            // Content row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // Left: poster + info
+                Column(
+                    modifier = Modifier.weight(0.35f),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(0.7f)
+                            .clip(RoundedCornerShape(12.dp))
+                    ) {
+                        AsyncImage(
+                            model = vod.pic,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    VodMetaInfo(vod = vod)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    PlayActionButton(uiState = uiState, vod = vod, onPlayClick = onPlayClick)
+                }
+
+                // Right: synopsis + episodes
+                Column(modifier = Modifier.weight(0.65f)) {
+                    Text(
+                        text = "剧情简介",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
-            )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = vod.content ?: "暂无简介",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "选集播放",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (uiState.sources.isNotEmpty()) {
+                        val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
+                        val episodeRows = episodes.chunked(4)
+                        episodeRows.forEach { row ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                row.forEach { episode ->
+                                    OutlinedButton(
+                                        onClick = { onPlayClick(vod.id, episode.index) },
+                                        modifier = Modifier.weight(1f),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text(text = episode.name, maxLines = 1, fontSize = 12.sp)
+                                    }
+                                }
+                                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                            }
+                        }
+                    } else if (uiState.sourcesError != null) {
+                        Text(
+                            text = uiState.sourcesError,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        OutlinedButton(onClick = onRetrySources) {
+                            Text("重试")
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
         // Floating back button
@@ -138,92 +236,6 @@ private fun TabletDetailLayout(
                 contentDescription = "返回",
                 tint = Color.White
             )
-        }
-
-        // Content below backdrop
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 260.dp)
-                .padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            // Left: poster + info
-            Column(
-                modifier = Modifier.weight(0.35f),
-                horizontalAlignment = Alignment.Start
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(0.7f)
-                        .clip(RoundedCornerShape(12.dp))
-                ) {
-                    AsyncImage(
-                        model = vod.pic,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                VodMetaInfo(vod = vod)
-                Spacer(modifier = Modifier.height(16.dp))
-                PlayActionButton(uiState = uiState, vod = vod, onPlayClick = onPlayClick)
-            }
-
-            // Right: synopsis + episodes
-            Column(modifier = Modifier.weight(0.65f)) {
-                Text(
-                    text = "剧情简介",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = vod.content ?: "暂无简介",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = "选集播放",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (uiState.sources.isNotEmpty()) {
-                    val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(90.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        items(episodes, key = { it.index }) { episode ->
-                            OutlinedButton(
-                                onClick = { onPlayClick(vod.id, episode.index) },
-                                contentPadding = PaddingValues(0.dp)
-                            ) {
-                                Text(text = episode.name, maxLines = 1, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                } else if (uiState.sourcesError != null) {
-                    Text(
-                        text = uiState.sourcesError,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    OutlinedButton(onClick = onRetrySources) {
-                        Text("重试")
-                    }
-                }
-            }
         }
     }
 }
