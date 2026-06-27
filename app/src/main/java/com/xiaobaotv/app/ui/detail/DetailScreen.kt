@@ -3,6 +3,7 @@ package com.xiaobaotv.app.ui.detail
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
@@ -32,6 +33,8 @@ import com.xiaobaotv.app.domain.model.Episode
 import com.xiaobaotv.app.domain.model.VodContent
 import com.xiaobaotv.app.ui.navigation.isExpandedLayout
 import com.xiaobaotv.app.ui.theme.ScoreStar
+
+private const val EPISODE_GROUP_SIZE = 100
 
 @Composable
 fun DetailScreen(
@@ -98,6 +101,14 @@ private fun TabletDetailLayout(
     onRetrySources: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
+    var selectedGroupIndex by remember(uiState.sources) { mutableStateOf(0) }
+
+    val groups = remember(episodes) { episodes.chunked(EPISODE_GROUP_SIZE) }
+    val visibleEpisodes = remember(groups, selectedGroupIndex) {
+        groups.getOrNull(selectedGroupIndex) ?: emptyList()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Scrollable content area
         Column(
@@ -188,8 +199,39 @@ private fun TabletDetailLayout(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (uiState.sources.isNotEmpty()) {
-                        val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
-                        val episodeRows = episodes.chunked(4)
+                        if (groups.size > 1) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp)
+                            ) {
+                                items(groups.size) { index ->
+                                    val groupEpisodes = groups[index]
+                                    val label = "${groupEpisodes.first().name} - ${groupEpisodes.last().name}"
+                                    val isSelected = selectedGroupIndex == index
+                                    if (isSelected) {
+                                        Button(
+                                            onClick = { selectedGroupIndex = index },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(32.dp)
+                                        ) {
+                                            Text(label, fontSize = 12.sp)
+                                        }
+                                    } else {
+                                        OutlinedButton(
+                                            onClick = { selectedGroupIndex = index },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                            modifier = Modifier.height(32.dp)
+                                        ) {
+                                            Text(label, fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        val episodeRows = visibleEpisodes.chunked(4)
                         episodeRows.forEach { row ->
                             Row(
                                 modifier = Modifier
@@ -249,6 +291,14 @@ private fun MobileDetailLayout(
     onPlayClick: (Int, Int) -> Unit,
     onBackClick: () -> Unit
 ) {
+    val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
+    var selectedGroupIndex by remember(uiState.sources) { mutableStateOf(0) }
+
+    val groups = remember(episodes) { episodes.chunked(EPISODE_GROUP_SIZE) }
+    val visibleEpisodes = remember(groups, selectedGroupIndex) {
+        groups.getOrNull(selectedGroupIndex) ?: emptyList()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             // Full-bleed backdrop image
@@ -441,39 +491,74 @@ private fun MobileDetailLayout(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
-                    val episodeRows = episodes.chunked(4)
-                    episodeRows.forEach { row ->
-                        Row(
+                    if (groups.size > 1) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .padding(bottom = 12.dp)
                         ) {
-                            row.forEach { episode ->
-                                Button(
-                                    onClick = { onPlayClick(vod.id, episode.index) },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        contentColor = MaterialTheme.colorScheme.onSurface
-                                    ),
-                                    contentPadding = PaddingValues(vertical = 12.dp)
-                                ) {
-                                    Text(
-                                        text = episode.name,
-                                        maxLines = 1,
-                                        fontSize = 13.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
+                            items(groups.size) { index ->
+                                val groupEpisodes = groups[index]
+                                val label = "${groupEpisodes.first().name} - ${groupEpisodes.last().name}"
+                                val isSelected = selectedGroupIndex == index
+                                if (isSelected) {
+                                    Button(
+                                        onClick = { selectedGroupIndex = index },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Text(label, fontSize = 12.sp)
+                                    }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = { selectedGroupIndex = index },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                        modifier = Modifier.height(32.dp)
+                                    ) {
+                                        Text(label, fontSize = 12.sp)
+                                    }
                                 }
-                            }
-                            repeat(4 - row.size) {
-                                Spacer(modifier = Modifier.weight(1f))
                             }
                         }
                     }
+                }
+
+                val episodeRows = visibleEpisodes.chunked(4)
+                items(episodeRows, key = { row -> row.firstOrNull()?.index ?: 0 }) { row ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        row.forEach { episode ->
+                            Button(
+                                onClick = { onPlayClick(vod.id, episode.index) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                contentPadding = PaddingValues(vertical = 12.dp)
+                            ) {
+                                Text(
+                                    text = episode.name,
+                                    maxLines = 1,
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                        repeat(4 - row.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+
+                item {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }

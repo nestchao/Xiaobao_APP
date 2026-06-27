@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -56,6 +57,7 @@ import com.xiaobaotv.app.domain.model.WatchHistoryItem
 @Composable
 fun HistoryScreen(
     onVodClick: (Int) -> Unit,
+    onSettingsClick: () -> Unit = {},
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -71,6 +73,12 @@ fun HistoryScreen(
                     )
                 },
                 actions = {
+                    IconButton(onClick = onSettingsClick) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "设置"
+                        )
+                    }
                     if (uiState.items.isNotEmpty()) {
                         TextButton(onClick = { showClearConfirmDialog = true }) {
                             Text("清除全部", color = MaterialTheme.colorScheme.error)

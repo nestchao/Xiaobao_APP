@@ -71,12 +71,14 @@ fun PlayerScreen(
     var currentPosMs by remember { mutableLongStateOf(0L) }
     var totalDurationMs by remember { mutableLongStateOf(0L) }
 
-    // Thread-safe refs for ForwardingPlayer — updated whenever uiState changes
+    // Thread-safe refs — updated whenever uiState changes
     val hasNextRef = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     val hasPrevRef = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    val autoNextEnabledRef = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
     LaunchedEffect(uiState) {
         hasNextRef.set(uiState.hasNextEpisode)
         hasPrevRef.set(uiState.hasPreviousEpisode)
+        autoNextEnabledRef.set(uiState.autoNextEnabled)
     }
 
     // Auto-hide controls after inactivity
@@ -138,11 +140,20 @@ fun PlayerScreen(
         }
     }
 
-    // Listen for play/pause state changes
+    // Listen for playback state changes
     LaunchedEffect(exoPlayer) {
         exoPlayer.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED
+                    && hasNextRef.get()
+                    && autoNextEnabledRef.get()
+                ) {
+                    viewModel.triggerAutoNextCountdown()
+                }
             }
         })
     }
@@ -190,7 +201,10 @@ fun PlayerScreen(
     }
 
     DisposableEffect(vodId) {
-        onDispose { exoPlayer.release() }
+        onDispose {
+            viewModel.cancelAutoNext()
+            exoPlayer.release()
+        }
     }
 
     // Full-screen immersive mode toggle
@@ -474,6 +488,35 @@ fun PlayerScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // Auto-next countdown overlay
+        if (uiState.showAutoNextOverlay) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .padding(16.dp)
+                    .navigationBarsPadding(),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "下一集即将播放 ${uiState.autoNextCountdown}s",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    TextButton(onClick = { viewModel.cancelAutoNext() }) {
+                        Text("取消", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp)
                     }
                 }
             }

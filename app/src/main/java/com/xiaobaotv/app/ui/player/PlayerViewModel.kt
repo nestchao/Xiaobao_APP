@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.datasource.cache.Cache
 import com.xiaobaotv.app.data.cache.PlaybackUrlCache
+import com.xiaobaotv.app.data.local.UserPreferences
 import com.xiaobaotv.app.domain.model.Episode
 import com.xiaobaotv.app.domain.model.VideoSource
 import com.xiaobaotv.app.domain.model.VodContent
@@ -32,7 +33,10 @@ data class PlayerUiState(
     val currentEpisodeIndex: Int = 0,
     val playbackUrl: String? = null,
     val savedPositionMs: Long = 0L,
-    val error: String? = null
+    val error: String? = null,
+    val autoNextEnabled: Boolean = true,
+    val showAutoNextOverlay: Boolean = false,
+    val autoNextCountdown: Int = 5
 ) {
     val hasNextEpisode: Boolean
         get() {
@@ -49,6 +53,7 @@ class PlayerViewModel @Inject constructor(
     private val contentRepository: ContentRepository,
     private val watchHistoryRepository: WatchHistoryRepository,
     private val playbackUrlCache: PlaybackUrlCache,
+    private val userPreferences: UserPreferences,
     val exoPlayerCache: Cache
 ) : ViewModel() {
 
@@ -60,6 +65,15 @@ class PlayerViewModel @Inject constructor(
 
     private var vodContent: VodContent? = null
     private var saveJob: Job? = null
+    private var autoNextJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            userPreferences.autoNextEnabled.collect { enabled ->
+                _uiState.update { it.copy(autoNextEnabled = enabled) }
+            }
+        }
+    }
 
     fun loadVideoInfo(vodId: Int, episodeIndex: Int = 0) {
         viewModelScope.launch {
@@ -112,6 +126,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun selectEpisode(episodeIndex: Int) {
+        cancelAutoNext()
         val currentState = _uiState.value
         val source = currentState.sources.getOrNull(currentState.currentSourceIndex)
         val episode = source?.episodes?.getOrNull(episodeIndex)
@@ -124,6 +139,26 @@ class PlayerViewModel @Inject constructor(
             _uiState.update { it.copy(currentEpisodeIndex = episodeIndex, savedPositionMs = 0L) }
             loadPlaybackUrl(episode)
         }
+    }
+
+    fun triggerAutoNextCountdown() {
+        autoNextJob?.cancel()
+        autoNextJob = viewModelScope.launch {
+            _uiState.update { it.copy(showAutoNextOverlay = true, autoNextCountdown = 5) }
+            for (i in 5 downTo 1) {
+                _uiState.update { it.copy(autoNextCountdown = i) }
+                delay(1000L)
+            }
+            _uiState.update { it.copy(showAutoNextOverlay = false) }
+            val nextIndex = _uiState.value.currentEpisodeIndex + 1
+            selectEpisode(nextIndex)
+        }
+    }
+
+    fun cancelAutoNext() {
+        autoNextJob?.cancel()
+        autoNextJob = null
+        _uiState.update { it.copy(showAutoNextOverlay = false, autoNextCountdown = 5) }
     }
 
     private fun loadPlaybackUrl(episode: Episode?) {
@@ -192,6 +227,7 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         saveJob?.cancel()
+        autoNextJob?.cancel()
         // Fire-and-forget final save — viewModelScope is already cancelled.
         // Position is already saved on ON_PAUSE, so this is a safety net.
         CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {

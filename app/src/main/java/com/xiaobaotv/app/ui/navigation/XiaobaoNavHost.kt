@@ -16,6 +16,7 @@ import com.xiaobaotv.app.ui.search.SearchScreen
 import com.xiaobaotv.app.ui.history.HistoryScreen
 import com.xiaobaotv.app.ui.player.PlayerScreen
 import com.xiaobaotv.app.ui.detail.DetailScreen
+import com.xiaobaotv.app.ui.profile.SettingsScreen
 
 object Routes {
     const val HOME = "home"
@@ -24,6 +25,7 @@ object Routes {
     const val HISTORY = "history"
     const val DETAIL = "detail/{vodId}"
     const val PLAYER = "player/{vodId}/{episodeNum}"
+    const val SETTINGS = "settings"
 
     fun detail(vodId: Int) = "detail/$vodId"
     fun player(vodId: Int, episodeNum: Int = 1) = "player/$vodId/$episodeNum"
@@ -53,7 +55,13 @@ fun XiaobaoNavHost(
             SearchScreen(onVodClick = { vodId -> navController.navigate(Routes.detail(vodId)) })
         }
         composable(Routes.HISTORY) {
-            HistoryScreen(onVodClick = { vodId -> navController.navigate(Routes.detail(vodId)) })
+            HistoryScreen(
+                onVodClick = { vodId -> navController.navigate(Routes.detail(vodId)) },
+                onSettingsClick = { navController.navigate(Routes.SETTINGS) }
+            )
+        }
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onBackClick = { navController.popBackStack() })
         }
         composable(
             route = Routes.DETAIL,

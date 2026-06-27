@@ -3,6 +3,7 @@ package com.xiaobaotv.app.di
 import android.app.Application
 import androidx.room.Room
 import com.xiaobaotv.app.data.local.AppDatabase
+import com.xiaobaotv.app.data.local.UserPreferences
 import com.xiaobaotv.app.data.local.VodContentDao
 import com.xiaobaotv.app.data.local.WatchHistoryDao
 import com.xiaobaotv.app.data.local.WatchlistDao
@@ -15,6 +16,12 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+
+    @Provides
+    @Singleton
+    fun provideUserPreferences(application: Application): UserPreferences {
+        return UserPreferences(application)
+    }
 
     @Provides
     @Singleton
