@@ -3,6 +3,7 @@ package com.xiaobaotv.app.di
 import android.app.Application
 import androidx.room.Room
 import com.xiaobaotv.app.data.local.AppDatabase
+import com.xiaobaotv.app.data.local.SearchHistoryDao
 import com.xiaobaotv.app.data.local.UserPreferences
 import com.xiaobaotv.app.data.local.VodContentDao
 import com.xiaobaotv.app.data.local.WatchHistoryDao
@@ -31,7 +32,11 @@ object DatabaseModule {
             AppDatabase::class.java,
             "xiaobao_cache.db"
         )
-            .addMigrations(AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
+            .addMigrations(
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5
+            )
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -52,5 +57,11 @@ object DatabaseModule {
     @Singleton
     fun provideWatchHistoryDao(database: AppDatabase): WatchHistoryDao {
         return database.watchHistoryDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideSearchHistoryDao(database: AppDatabase): SearchHistoryDao {
+        return database.searchHistoryDao()
     }
 }

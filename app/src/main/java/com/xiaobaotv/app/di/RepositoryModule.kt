@@ -1,9 +1,11 @@
 package com.xiaobaotv.app.di
 
 import com.xiaobaotv.app.data.repository.ContentRepositoryImpl
+import com.xiaobaotv.app.data.repository.SearchHistoryRepositoryImpl
 import com.xiaobaotv.app.data.repository.VideoRepositoryImpl
 import com.xiaobaotv.app.data.repository.WatchHistoryRepositoryImpl
 import com.xiaobaotv.app.domain.repository.ContentRepository
+import com.xiaobaotv.app.domain.repository.SearchHistoryRepository
 import com.xiaobaotv.app.domain.repository.VideoRepository
 import com.xiaobaotv.app.domain.repository.WatchHistoryRepository
 import dagger.Binds
@@ -33,4 +35,10 @@ abstract class RepositoryModule {
     abstract fun bindWatchHistoryRepository(
         watchHistoryRepositoryImpl: WatchHistoryRepositoryImpl
     ): WatchHistoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSearchHistoryRepository(
+        searchHistoryRepositoryImpl: SearchHistoryRepositoryImpl
+    ): SearchHistoryRepository
 }
