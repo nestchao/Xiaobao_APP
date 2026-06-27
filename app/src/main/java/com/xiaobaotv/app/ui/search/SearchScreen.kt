@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -13,11 +14,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.xiaobaotv.app.ui.components.VodPosterCard
 import com.xiaobaotv.app.ui.navigation.isExpandedLayout
+
+private val hotTags = listOf("庆余年", "墨雨云间", "玫瑰的故事", "三体", "繁花", "赘婿", "狂飙", "漫长的季节")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,40 +34,99 @@ fun SearchScreen(
     val isTablet = isExpandedLayout()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Search Bar
+        // Search bar
         TextField(
             value = uiState.query,
             onValueChange = { viewModel.onQueryChange(it) },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            placeholder = { Text("搜索你想看的") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            placeholder = {
+                Text("搜索你想看的", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            leadingIcon = {
+                Icon(
+                    Icons.Default.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
             trailingIcon = {
                 if (uiState.query.isNotEmpty()) {
                     IconButton(onClick = { viewModel.clearSearch() }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        Icon(
+                            Icons.Default.Clear,
+                            contentDescription = "清除",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             },
             singleLine = true,
-            shape = MaterialTheme.shapes.medium,
+            shape = RoundedCornerShape(24.dp),
             colors = TextFieldDefaults.colors(
-                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+                cursorColor = MaterialTheme.colorScheme.primary
             )
         )
 
         Box(modifier = Modifier.weight(1f)) {
             if (uiState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (uiState.query.isEmpty() && !uiState.isLoading) {
+                // Hot search tags when no query
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "热门搜索",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Tags in a wrapping flow
+                    @OptIn(ExperimentalLayoutApi::class)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        hotTags.forEach { tag ->
+                            Surface(
+                                onClick = { viewModel.onQueryChange(tag) },
+                                shape = RoundedCornerShape(20.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = tag,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             if (uiState.results.isEmpty() && !uiState.isLoading && uiState.query.isNotEmpty()) {
                 Text(
                     text = "没有找到相关内容",
                     modifier = Modifier.align(Alignment.Center),
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

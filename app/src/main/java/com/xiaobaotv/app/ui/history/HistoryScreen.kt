@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
@@ -31,6 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,14 +64,22 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("观看历史") },
+                title = {
+                    Text(
+                        "观看历史",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 actions = {
                     if (uiState.items.isNotEmpty()) {
                         TextButton(onClick = { showClearConfirmDialog = true }) {
                             Text("清除全部", color = MaterialTheme.colorScheme.error)
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         }
     ) { innerPadding ->
@@ -80,7 +90,10 @@ fun HistoryScreen(
         ) {
             when {
                 uiState.isLoading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
 
                 uiState.items.isEmpty() -> {
@@ -115,7 +128,7 @@ fun HistoryScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(uiState.items, key = { it.vodId }) { item ->
@@ -165,7 +178,10 @@ fun HistoryItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
     ) {
         Row(
             modifier = Modifier
@@ -173,17 +189,19 @@ fun HistoryItemRow(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Thumbnail
             AsyncImage(
                 model = item.pic,
                 contentDescription = item.name,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(width = 60.dp, height = 80.dp)
-                    .clip(MaterialTheme.shapes.small)
+                    .size(width = 72.dp, height = 96.dp)
+                    .clip(RoundedCornerShape(8.dp))
             )
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
+            // Info column
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -202,8 +220,9 @@ fun HistoryItemRow(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
+                // Progress bar + percentage
                 if (item.durationMs > 0) {
                     val progress = item.positionMs.toFloat() / item.durationMs
                     val progressPercent = (progress * 100).toInt().coerceIn(0, 100)
@@ -215,7 +234,8 @@ fun HistoryItemRow(
                             progress = { progress.coerceIn(0f, 1f) },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(4.dp),
+                                .height(5.dp)
+                                .clip(RoundedCornerShape(2.5f)),
                             color = MaterialTheme.colorScheme.primary,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
@@ -228,13 +248,12 @@ fun HistoryItemRow(
                 }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
+            // Delete button
             IconButton(onClick = onDeleteClick) {
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "删除记录",
-                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
                 )
             }
         }

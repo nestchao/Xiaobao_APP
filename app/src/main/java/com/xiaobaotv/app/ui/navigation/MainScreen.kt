@@ -1,15 +1,18 @@
 package com.xiaobaotv.app.ui.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,12 +24,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.xiaobaotv.app.ui.theme.NavBarBackground
+import com.xiaobaotv.app.ui.theme.SurfaceDark
 
 @Stable
 class FullScreenState {
@@ -54,7 +60,11 @@ fun MainScreen() {
         Scaffold(
             bottomBar = {
                 if (!fullScreenState.isActive && !isTablet) {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = NavBarBackground,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        tonalElevation = 0.dp
+                    ) {
                         BottomNavItem.items.forEach { item ->
                             val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
                             NavigationBarItem(
@@ -74,7 +84,14 @@ fun MainScreen() {
                                         launchSingleTop = true
                                         restoreState = true
                                     }
-                                }
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    unselectedIconColor = Color(0xFF64748B),
+                                    unselectedTextColor = Color(0xFF64748B),
+                                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                )
                             )
                         }
                     }
@@ -84,7 +101,10 @@ fun MainScreen() {
             Row(modifier = Modifier.fillMaxSize()) {
                 if (!fullScreenState.isActive && isTablet) {
                     NavigationRail(
-                        modifier = Modifier.fillMaxHeight(),
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .background(SurfaceDark),
+                        containerColor = SurfaceDark,
                         header = {
                             Text(
                                 text = "小宝TV",
@@ -112,7 +132,14 @@ fun MainScreen() {
                                         launchSingleTop = true
                                         restoreState = true
                                     }
-                                }
+                                },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    unselectedIconColor = Color(0xFF64748B),
+                                    unselectedTextColor = Color(0xFF64748B),
+                                    indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                )
                             )
                         }
                     }

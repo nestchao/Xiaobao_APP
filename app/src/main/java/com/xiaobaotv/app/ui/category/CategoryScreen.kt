@@ -1,9 +1,12 @@
 package com.xiaobaotv.app.ui.category
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,28 +38,50 @@ fun CategoryScreen(
     )
 
     Column(modifier = Modifier.fillMaxSize()) {
-        ScrollableTabRow(
-            selectedTabIndex = categories.indexOfFirst { it.first == uiState.selectedTypeId }.coerceAtLeast(0),
-            edgePadding = 16.dp,
-            divider = {}
+        // Pill-style category chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             categories.forEach { (id, name) ->
-                Tab(
-                    selected = uiState.selectedTypeId == id,
+                val selected = uiState.selectedTypeId == id
+                Surface(
                     onClick = { viewModel.selectType(id) },
-                    text = { Text(name) }
-                )
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    contentColor = if (selected) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
+                    )
+                }
             }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
             if (pagingItems.itemCount == 0 && pagingItems.loadState.refresh is LoadState.Loading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
             LazyVerticalGrid(
                 columns = if (isTablet) GridCells.Adaptive(130.dp) else GridCells.Fixed(3),
-                contentPadding = PaddingValues(8.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxSize()

@@ -30,6 +30,8 @@ import com.xiaobaotv.app.domain.model.WatchHistoryItem
 import com.xiaobaotv.app.ui.components.SectionHeader
 import com.xiaobaotv.app.ui.components.VodPosterCard
 import com.xiaobaotv.app.ui.navigation.isExpandedLayout
+import com.xiaobaotv.app.ui.theme.PromoBadge
+import com.xiaobaotv.app.ui.theme.ScoreStar
 
 @Composable
 fun HomeScreen(
@@ -39,14 +41,22 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val onVodClickRemembered = remember(onVodClick) { { id: Int -> onVodClick(id) } }
     val isTablet = isExpandedLayout()
+    val heroHeight = if (isTablet) 360.dp else 280.dp
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (uiState.isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.primary
+            )
         }
 
         uiState.error?.let { error ->
-            Text(text = error, modifier = Modifier.align(Alignment.Center))
+            Text(
+                text = error,
+                modifier = Modifier.align(Alignment.Center),
+                color = MaterialTheme.colorScheme.error
+            )
         }
 
         LazyColumn(
@@ -60,9 +70,7 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(if (isTablet) 320.dp else 220.dp)
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .height(heroHeight)
                     ) {
                         HorizontalPager(state = pagerState) { page ->
                             val vod = uiState.heroItems[page]
@@ -77,32 +85,85 @@ fun HomeScreen(
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
                                 )
+
+                                // Gradient overlay
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .background(
                                             Brush.verticalGradient(
-                                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)),
-                                                startY = 100f
+                                                colors = listOf(
+                                                    Color.Transparent,
+                                                    Color.Black.copy(alpha = 0.15f),
+                                                    Color.Black.copy(alpha = 0.85f)
+                                                ),
+                                                startY = 0f,
+                                                endY = heroHeight.value * 1.2f
                                             )
                                         )
                                 )
+
+                                // Content overlay
                                 Column(
                                     modifier = Modifier
                                         .align(Alignment.BottomStart)
-                                        .padding(16.dp)
+                                        .padding(horizontal = 20.dp, vertical = 20.dp)
                                 ) {
+                                    // Genre badge
+                                    Surface(
+                                        color = PromoBadge,
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "全网热播",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
                                     Text(
                                         text = vod.name,
-                                        style = MaterialTheme.typography.headlineSmall,
+                                        style = MaterialTheme.typography.headlineMedium,
                                         color = Color.White,
                                         fontWeight = FontWeight.Bold
                                     )
-                                    vod.remarks?.let {
+
+                                    if (!vod.content.isNullOrBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = it,
+                                            text = vod.content,
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.primaryContainer
+                                            color = Color.White.copy(alpha = 0.7f),
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Play button
+                                    Button(
+                                        onClick = { onVodClickRemembered(vod.id) },
+                                        shape = RoundedCornerShape(24.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color.White,
+                                            contentColor = Color.Black
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp)
+                                    ) {
+                                        Text(
+                                            text = "▶",
+                                            fontSize = 14.sp
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "立即播放",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
                                         )
                                     }
                                 }
@@ -112,7 +173,7 @@ fun HomeScreen(
                 }
             }
 
-            // Continue Watching Row
+            // Continue Watching
             if (uiState.continueWatchingList.isNotEmpty()) {
                 item { SectionHeader(title = "继续观看") }
                 item {
@@ -136,9 +197,14 @@ fun HomeScreen(
                 }
             }
 
-            // Movie Row
+            // Latest Movies
             if (uiState.hotMovies.isNotEmpty()) {
-                item { SectionHeader(title = "最新电影") }
+                item {
+                    SectionHeader(
+                        title = "热门电影",
+                        onMoreClick = { uiState.hotMovies.firstOrNull()?.let { onVodClickRemembered(it.id) } }
+                    )
+                }
                 item {
                     LazyRow(
                         modifier = Modifier.padding(horizontal = 12.dp),
@@ -160,9 +226,14 @@ fun HomeScreen(
                 }
             }
 
-            // TV Row
+            // Hot TV Series
             if (uiState.hotTvSeries.isNotEmpty()) {
-                item { SectionHeader(title = "热门剧集") }
+                item {
+                    SectionHeader(
+                        title = "热门剧集",
+                        onMoreClick = { uiState.hotTvSeries.firstOrNull()?.let { onVodClickRemembered(it.id) } }
+                    )
+                }
                 item {
                     LazyRow(
                         modifier = Modifier.padding(horizontal = 12.dp),
@@ -184,9 +255,14 @@ fun HomeScreen(
                 }
             }
 
-            // Anime Row
+            // Hot Anime
             if (uiState.hotAnime.isNotEmpty()) {
-                item { SectionHeader(title = "热门动漫") }
+                item {
+                    SectionHeader(
+                        title = "热门动漫",
+                        onMoreClick = { uiState.hotAnime.firstOrNull()?.let { onVodClickRemembered(it.id) } }
+                    )
+                }
                 item {
                     LazyRow(
                         modifier = Modifier.padding(horizontal = 12.dp),
@@ -239,9 +315,8 @@ fun HistoryPosterCard(
             // Episode badge
             Surface(
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .clip(RoundedCornerShape(bottomEnd = 8.dp))
+                shape = RoundedCornerShape(bottomEnd = 8.dp),
+                modifier = Modifier.align(Alignment.TopStart)
             ) {
                 Text(
                     text = history.episodeName,
@@ -251,7 +326,7 @@ fun HistoryPosterCard(
                 )
             }
 
-            // Progress bar
+            // Progress bar at bottom
             if (history.durationMs > 0) {
                 val progress = history.positionMs.toFloat() / history.durationMs
                 LinearProgressIndicator(

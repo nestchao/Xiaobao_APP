@@ -7,9 +7,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -21,8 +23,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -30,8 +32,8 @@ import coil.compose.AsyncImage
 import com.xiaobaotv.app.domain.model.Episode
 import com.xiaobaotv.app.domain.model.VodContent
 import com.xiaobaotv.app.ui.navigation.isExpandedLayout
+import com.xiaobaotv.app.ui.theme.ScoreStar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(
     vodId: Int,
@@ -46,291 +48,443 @@ fun DetailScreen(
         viewModel.loadDetail(vodId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(uiState.vod?.name ?: "") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    navigationIconContentColor = Color.White
-                )
-            )
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (uiState.isLoading && uiState.vod == null) {
+            DetailSkeleton()
         }
-    ) { innerPadding ->
-        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            if (uiState.isLoading && uiState.vod == null) {
-                DetailSkeleton()
-            }
 
-            uiState.error?.let { error ->
-                Column(
-                    modifier = Modifier.align(Alignment.Center).padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(text = error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(onClick = { viewModel.loadDetail(vodId) }) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Text("重试")
-                    }
+        uiState.error?.let { error ->
+            Column(
+                modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = error, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedButton(onClick = { viewModel.loadDetail(vodId) }) {
+                    Icon(Icons.Default.Refresh, contentDescription = null)
+                    Text("重试")
                 }
             }
+        }
 
-            uiState.vod?.let { vod ->
-                if (isTablet) {
-                    TabletDetailLayout(
-                        vod = vod,
-                        uiState = uiState,
-                        onPlayClick = onPlayClick,
-                        onRetrySources = { viewModel.loadDetail(vodId) }
-                    )
-                } else {
-                    MobileDetailLayout(
-                        vod = vod,
-                        uiState = uiState,
-                        onPlayClick = onPlayClick
-                    )
-                }
+        uiState.vod?.let { vod ->
+            if (isTablet) {
+                TabletDetailLayout(
+                    vod = vod,
+                    uiState = uiState,
+                    onPlayClick = onPlayClick,
+                    onBackClick = onBackClick,
+                    onRetrySources = { viewModel.loadDetail(vodId) }
+                )
+            } else {
+                MobileDetailLayout(
+                    vod = vod,
+                    uiState = uiState,
+                    onPlayClick = onPlayClick,
+                    onBackClick = onBackClick
+                )
             }
         }
     }
 }
+
+// ─── Tablet Layout ───────────────────────────────────────────────────────
 
 @Composable
 private fun TabletDetailLayout(
     vod: VodContent,
     uiState: DetailUiState,
     onPlayClick: (Int, Int) -> Unit,
+    onBackClick: () -> Unit,
     onRetrySources: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        // Left Column (Poster and Metadata Info)
-        Column(
-            modifier = Modifier.weight(0.4f),
-            horizontalAlignment = Alignment.Start
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Backdrop
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
         ) {
+            AsyncImage(
+                model = vod.pic,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(340.dp)
-                    .clip(RoundedCornerShape(12.dp))
-            ) {
-                AsyncImage(
-                    model = vod.pic,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
-                                startY = 150f
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.3f),
+                                Color.Black.copy(alpha = 0.85f)
                             )
                         )
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = vod.name,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                    )
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "${vod.year ?: ""} / ${vod.area ?: ""} / ${vod.typeName ?: ""}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            PlayActionButton(uiState = uiState, vod = vod, onPlayClick = onPlayClick)
         }
 
-        // Right Column (Storyline details + Episodes)
-        Column(
-            modifier = Modifier.weight(0.6f)
+        // Floating back button
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .background(Color.Black.copy(alpha = 0.4f), CircleShape)
         ) {
-            Text(
-                text = "剧情简介",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "返回",
+                tint = Color.White
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = vod.content ?: "暂无简介",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(24.dp))
+        }
 
-            Text(
-                text = "选集播放",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (uiState.sources.isNotEmpty()) {
-                val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(90.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
+        // Content below backdrop
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 260.dp)
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            // Left: poster + info
+            Column(
+                modifier = Modifier.weight(0.35f),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(0.7f)
+                        .clip(RoundedCornerShape(12.dp))
                 ) {
-                    items(episodes, key = { it.index }) { episode ->
-                        OutlinedButton(
-                            onClick = { onPlayClick(vod.id, episode.index) },
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text(
-                                text = episode.name,
-                                maxLines = 1,
-                                fontSize = 12.sp
-                            )
+                    AsyncImage(
+                        model = vod.pic,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                VodMetaInfo(vod = vod)
+                Spacer(modifier = Modifier.height(16.dp))
+                PlayActionButton(uiState = uiState, vod = vod, onPlayClick = onPlayClick)
+            }
+
+            // Right: synopsis + episodes
+            Column(modifier = Modifier.weight(0.65f)) {
+                Text(
+                    text = "剧情简介",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = vod.content ?: "暂无简介",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "选集播放",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (uiState.sources.isNotEmpty()) {
+                    val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(90.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(episodes, key = { it.index }) { episode ->
+                            OutlinedButton(
+                                onClick = { onPlayClick(vod.id, episode.index) },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(text = episode.name, maxLines = 1, fontSize = 12.sp)
+                            }
                         }
                     }
-                }
-            } else if (uiState.sourcesError != null) {
-                Text(
-                    text = uiState.sourcesError,
-                    color = MaterialTheme.colorScheme.error
-                )
-                OutlinedButton(onClick = onRetrySources) {
-                    Text("重试")
+                } else if (uiState.sourcesError != null) {
+                    Text(
+                        text = uiState.sourcesError,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    OutlinedButton(onClick = onRetrySources) {
+                        Text("重试")
+                    }
                 }
             }
         }
     }
 }
+
+// ─── Mobile Layout ───────────────────────────────────────────────────────
 
 @Composable
 private fun MobileDetailLayout(
     vod: VodContent,
     uiState: DetailUiState,
-    onPlayClick: (Int, Int) -> Unit
+    onPlayClick: (Int, Int) -> Unit,
+    onBackClick: () -> Unit
 ) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        // Backdrop Image
-        item {
-            Box(modifier = Modifier.height(300.dp).fillMaxWidth()) {
-                AsyncImage(
-                    model = vod.pic,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            // Full-bleed backdrop image
+            item {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
-                                startY = 0f,
-                                endY = 1000f
+                        .height(300.dp)
+                        .fillMaxWidth()
+                ) {
+                    AsyncImage(
+                        model = vod.pic,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    // Gradient overlay: transparent at top → dark at bottom
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.1f),
+                                        MaterialTheme.colorScheme.background
+                                    ),
+                                    startY = 0f,
+                                    endY = 1000f
+                                )
                             )
-                        )
-                )
-            }
-        }
-
-        // Content details & Play Action button
-        item {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = vod.name,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!vod.score.isNullOrBlank()) {
-                        Text(
-                            text = vod.score,
-                            color = Color.Yellow,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text(
-                        text = "${vod.year ?: ""} / ${vod.area ?: ""} / ${vod.typeName ?: ""}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-
-                PlayActionButton(uiState = uiState, vod = vod, onPlayClick = onPlayClick)
-
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "剧情简介",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = vod.content ?: "暂无简介",
-                    style = MaterialTheme.typography.bodyMedium
-                )
             }
-        }
 
-        // Episode Selection Layout (Mobile)
-        if (uiState.sources.isNotEmpty()) {
+            // Title and metadata
             item {
-                Text(
-                    text = "选集播放",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-            }
+                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                    // Title
+                    Text(
+                        text = vod.name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
 
-            val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
-            val episodeRows = episodes.chunked(4)
-            items(episodeRows, key = { row -> row.firstOrNull()?.index ?: 0 }) { row ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp)
-                ) {
-                    row.forEach { episode ->
-                        OutlinedButton(
-                            onClick = { onPlayClick(vod.id, episode.index) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(4.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Score + metadata row
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Score with star
+                        if (!vod.score.isNullOrBlank() && vod.score != "0.0") {
                             Text(
-                                text = episode.name,
-                                maxLines = 1,
+                                text = "★",
+                                color = ScoreStar,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = vod.score,
+                                color = ScoreStar,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "|",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
                         }
-                    }
-                    repeat(4 - row.size) {
-                        Spacer(modifier = Modifier.weight(1f).padding(4.dp))
+
+                        Text(
+                            text = vod.year?.take(4) ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        if (!vod.area.isNullOrBlank()) {
+                            Text(
+                                text = vod.area,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        // Genre chip
+                        if (!vod.typeName.isNullOrBlank()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = vod.typeName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
+
+            // Action buttons
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Primary play button
+                    Button(
+                        onClick = {
+                            val history = uiState.historyItem
+                            val episode = if (history != null) history.episodeIndex + 1 else 1
+                            onPlayClick(vod.id, episode)
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        contentPadding = PaddingValues(vertical = 14.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        val history = uiState.historyItem
+                        val buttonText = if (history != null && history.durationMs > 0) {
+                            val pct = (history.positionMs * 100 / history.durationMs).toInt().coerceIn(0, 100)
+                            "继续 ${history.episodeName} ($pct%)"
+                        } else if (history != null) {
+                            "继续 ${history.episodeName}"
+                        } else {
+                            "立即播放"
+                        }
+                        Text(buttonText, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+
+                    // Secondary action (favorites / watchlist)
+                    OutlinedButton(
+                        onClick = { },
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(vertical = 14.dp),
+                        modifier = Modifier.width(52.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "收藏",
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+
+            // Synopsis
+            item {
+                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                    Text(
+                        text = "剧情简介",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = vod.content ?: "暂无简介",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 22.sp
+                    )
+                }
+            }
+
+            // Episode selection
+            if (uiState.sources.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Text(
+                        text = "选集播放",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    val episodes = uiState.sources.firstOrNull()?.episodes ?: emptyList()
+                    val episodeRows = episodes.chunked(4)
+                    episodeRows.forEach { row ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            row.forEach { episode ->
+                                Button(
+                                    onClick = { onPlayClick(vod.id, episode.index) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    contentPadding = PaddingValues(vertical = 12.dp)
+                                ) {
+                                    Text(
+                                        text = episode.name,
+                                        maxLines = 1,
+                                        fontSize = 13.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
+                            repeat(4 - row.size) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+
+        // Floating back button over the backdrop
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(8.dp)
+                .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+        ) {
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "返回",
+                tint = Color.White
+            )
         }
     }
 }
+
+// ─── Play Action Button ──────────────────────────────────────────────────
 
 @Composable
 private fun PlayActionButton(
@@ -359,6 +513,70 @@ private fun PlayActionButton(
         Text(buttonText)
     }
 }
+
+// ─── VOD Meta Info ──────────────────────────────────────────────────────
+
+@Composable
+private fun VodMetaInfo(vod: VodContent) {
+    Column {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Score
+            if (!vod.score.isNullOrBlank() && vod.score != "0.0") {
+                Text(
+                    text = "★",
+                    color = ScoreStar,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = vod.score,
+                    color = ScoreStar,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = "|",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp
+                )
+            }
+            Text(
+                text = "${vod.year?.take(4) ?: ""} / ${vod.area ?: ""}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (!vod.typeName.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(4.dp)
+            ) {
+                Text(
+                    text = vod.typeName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        if (!vod.actor.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "主演: ${vod.actor}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+// ─── Skeleton Loading ────────────────────────────────────────────────────
 
 @Composable
 private fun DetailSkeleton() {
