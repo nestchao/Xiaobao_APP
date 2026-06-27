@@ -1,6 +1,5 @@
 *.iml
 .gradle
-/local.properties
 /.idea
 .DS_Store
 /build
@@ -9,3 +8,54 @@
 .cxx
 local.properties
 google-services.json
+
+# --- Android / Kotlin / Gradle ---
+*.apk
+*.aab
+*.ap_
+/app/build
+*.dex
+*.class
+*.aar
+*.war
+*.jar
+*.keystore
+*.jks
+*.debug.keystore
+bin/
+gen/
+out/
+
+# Kotlin
+*.kotlin_module
+
+# Gradle wrapper
+gradle/wrapper/gradle-wrapper.jar
+
+# --- Python / ad-hoc dev scripts (root) ---
+*.py
+*.txt
+*.html
+test_*
+fix_*
+replace_*
+write_*
+build_*
+structure.txt
+detail_movie.html
+new_method.txt
+cross_file_concerns.json
+full_context_part1.txt
+all_logs.txt
+
+# --- IDE & OS ---
+*.swp
+*.swo
+*~
+.vscode/
+Thumbs.db
+
+# --- Generated / misc ---
+*.log
+*.hprof
+*.prof
